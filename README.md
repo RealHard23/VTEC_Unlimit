@@ -1,3 +1,3 @@
-# Dynamic_thermal
+# VTEC_Unlock
 https://t.me/PROJECT_RealHard
-Setting for dynamic thermal
+Unlock_limit for poco f6

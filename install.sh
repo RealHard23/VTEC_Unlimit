@@ -80,10 +80,10 @@ sleep 1
   ui_print " RealHard @xda "
 sleep 1
   ui_print " "
-  ui_print " v1 Improved beyond the limits of performance "
+  ui_print " v2.1 Improved beyond the limits of performance "
 sleep 1
   ui_print " "
-  ui_print " Optimization "
+  ui_print " Disabled Thermal "
 sleep 1  
   ui_print " "
   ui_print " Warning!! This module is high risk. 

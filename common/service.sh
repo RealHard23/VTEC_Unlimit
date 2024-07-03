@@ -34,11 +34,10 @@ echo 0 > /sys/devices/system/cpu/cpu0/core_ctl/enable
 
 for a in $(getprop|grep thermal|cut -f1 -d]|cut -f2 -d[|grep -F init.svc.|sed 's/init.svc.//');do stop $a;done;for b in $(getprop|grep thermal|cut -f1 -d]|cut -f2 -d[|grep -F init.svc.);do setprop $b stopped;done;for c in $(getprop|grep thermal|cut -f1 -d]|cut -f2 -d[|grep -F init.svc_);do setprop $c "";done
 
-su -c settings put system miui_app_cache_optimization 1
+su -c settings put system speed_mode 1
+su -c settings put system thermal_limit_refresh_rate 0
 su -c settings put global touch_response_time 0
-su -c settings delete global transition_animation_duration_ratio
-
-su -lp 2000 -c "cmd notification post -S bigtext -t '🔥TWEAK🔥' 'Tag' 'VTEC_Unlock ⚡ปรับแต่ง⚡ Impover Stability Successfull @RealHard️'"
+su -c settings delete global transition_animation_duration_ratiosu -lp 2000 -c "cmd notification post -S bigtext -t '🔥TWEAK🔥' 'Tag' 'VTEC_Unlock ⚡ปรับแต่ง⚡ Impover Stability Successfull @RealHard️'"
 
 nohup sh $MODDIR/script/shellscript > /dev/null &
 sync && echo 3 > /proc/sys/vm/drop_caches

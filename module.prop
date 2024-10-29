@@ -1,9 +1,11 @@
 id=Unlock_limit
 name=VTEC_Unlock
-version=v2.2
-versionCode=17
+version=v2.4
+versionCode=21
 author=REALHARD
-description=🚨 Unlock thermal control limits For POCO F6
+description=ðŸš¨ Unlock thermal control limits For XIAOMI. Protect your system from bootloop caused by Magisk modules by turning off all your modules and restart your system if bootloop is detected.
+changeBoot=false
+needRamdisk=false
 
 # CREDITS
 # @modulostk

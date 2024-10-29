@@ -1,15 +1,11 @@
 # Performance tweark
-video.accelerate.hw=1
 debug.performance.tuning=1
 persist.sys.purgeable_assets=1
 persist.freecache.enable=true
 log.tag.TackManagerService=ERROR
 persist.sys.enable_templimit=false
-ro.HOME_APP_ADJ=1
-debug.sf.hw=1
-video.accelerate.hw=1
-debug.egl.hw=1
 debug.composition.type=gpu # Disable hardware overlays and use GPU for screen compositing
+ro.surface_flinger.use_color_management=true
 
 #Enable Quick Power-On Mode To Reduce Boot-Time 
 ro.config.hw_quickpoweron=true

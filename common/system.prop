@@ -41,8 +41,8 @@ ro.gps.set_privacy_to=0
 ro.gps.use_gpsd=true
 
 # Bypass LIAPP Credits@HUBERTHHUB
-persist.log.tag.LSPosed S
-persist.log.tag.LSPosed-Bridge S
+#persist.log.tag.LSPosed S
+#persist.log.tag.LSPosed-Bridge S
 
 
 

@@ -6,6 +6,8 @@ MODDIR=${0%/*}
 while true; do
         resetprop  -n persist.sys.turbosched.enable true
         resetprop  -n persist.sys.turbosched.enable.coreApp.optimizer true
+        resetprop  -n -p --delete persist.log.tag.LSPosed
+        resetprop  -n -p --delete persist.log.tag.LSPosed-Bridge
         sleep 1;
     done
 } &

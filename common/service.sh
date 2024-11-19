@@ -35,10 +35,23 @@ do
    echo 1 > "$gov/boost"
 done
 
+for proc in $(list_thermal_proc); do
+	echo "Freeze $proc"
+	kill -SIGSTOP "$(pidof "$proc")"
+done
+
+if [ -d /proc/ppm ]; then
+	for ppm in $(cat /proc/ppm/policy_status | grep -E 'PWR_THRO|THERMAL' | awk -F'[][]' '{print $2}'); do
+		echo "$ppm 0" /proc/ppm/policy_status
+	done
+fi
+
 #echo disabled > /sys/class/thermal/thermal_zone*/mode
 echo 0 > /sys/class/kgsl/kgsl-3d0/throttling
 echo 0 > /sys/devices/system/cpu/cpu0/core_ctl/enable
 echo 1 > /sys/class/qcom-battery/thermal_remove
+echo 0 > /sys/kernel/msm_thermal/enabled
+echo N > /sys/module/msm_thermal/parameters/enabled
 
 for a in $(getprop|grep thermal|cut -f1 -d]|cut -f2 -d[|grep -F init.svc.|sed 's/init.svc.//');do stop $a;done;for b in $(getprop|grep thermal|cut -f1 -d]|cut -f2 -d[|grep -F init.svc.);do setprop $b stopped;done;for c in $(getprop|grep thermal|cut -f1 -d]|cut -f2 -d[|grep -F init.svc_);do setprop $c "";done
 
@@ -72,7 +85,7 @@ log "Started"
 
 # Modify description
 cp "$MODPATH/module.prop" "$MODPATH/temp.prop"
-sed -Ei "s/^description=(\[.*][[:space:]]*)?/description=[Working. $MESSAGE] /g" "$MODPATH/temp.prop"
+sed -Ei "s/^description=(\[.*][[:space:]]*)?/description=[Working🥳. $MESSAGE] /g" "$MODPATH/temp.prop"
 mv "$MODPATH/temp.prop" "$MODPATH/module.prop"
 
 # Define the function

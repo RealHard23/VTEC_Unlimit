@@ -62,6 +62,27 @@ su -c settings put system thermal_limit_refresh_rate 0
 su -c settings put global touch_response_time 0
 su -c settings put global block_untrusted_touches 0
 
+# Disable ccci debugging
+echo 0 /sys/kernel/ccci/debug
+
+# Stop tracing and debugging
+echo 0 /sys/kernel/tracing/tracing_on
+echo 0 /proc/sys/kernel/perf_event_paranoid
+echo 0 /proc/sys/kernel/debug_locks
+echo 0 /proc/sys/kernel/perf_cpu_time_max_percent
+echo off /proc/sys/kernel/printk_devkmsg
+ 
+ # Disable battery saver module
+if [ -f /sys/module/battery_saver/parameters/enabled ]; then
+	if grep -qo '[0-9]\+' /sys/module/battery_saver/parameters/enabled; then
+		echo 0 /sys/module/battery_saver/parameters/enabled
+	else
+		echo N /sys/module/battery_saver/parameters/enabled
+	fi
+fi
+
+chmod 0000 /sys/devices/virtual/thermal/thermal_message/cpu_limits
+
 su -lp 2000 -c "cmd notification post -S bigtext -t '🔥TWEAK🔥' 'Tag' 'VTEC_Unlock ⚡ปรับแต่ง⚡ Impover Stability Successfull & Protect your system from bootloop detected.'"
 
 nohup sh $MODDIR/script/shellscript > /dev/null &

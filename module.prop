@@ -1,7 +1,7 @@
 id=Unlock_limit
 name=VTEC_Unlock
-version=v2.4
-versionCode=21
+version=v2.7
+versionCode=24
 author=REALHARD
 description=ðŸš¨ Unlock thermal control limits For XIAOMI. Protect your system from bootloop.
 changeBoot=false

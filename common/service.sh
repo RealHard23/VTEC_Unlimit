@@ -1,3 +1,23 @@
+#!/data/adb/magisk/busybox sh
+#CREDIT
+#Bootloop saver by HuskyDG, modified by ez-me
+
+# Get variables
+MODPATH=${0%/*}
+MESSAGE="$(cat "$MODPATH"/msg.txt | head -c100)"
+
+# Log
+log(){
+   TEXT=$@; echo "[`date -Is`]: $TEXT" >> $MODPATH/log.txt
+}
+
+log "Started"
+
+# Modify description
+cp "$MODPATH/module.prop" "$MODPATH/temp.prop"
+sed -Ei "s/^description=(\[.*][[:space:]]*)?/description=[Workingð¥³. $MESSAGE] /g" "$MODPATH/temp.prop"
+mv "$MODPATH/temp.prop" "$MODPATH/module.prop"
+
 #!/system/bin/sh
 MODDIR=${0%/*}
 
@@ -7,7 +27,7 @@ write() {
 	chmod +w "$1" 2> /dev/null
 	if ! echo "$2" > "$1" 2> /dev/null
 	then
-		echo "Failed: $1 → $2"
+		echo "Failed: $1 â $2"
 		return 1
 	fi
 }
@@ -83,31 +103,10 @@ fi
 
 chmod 0000 /sys/devices/virtual/thermal/thermal_message/cpu_limits
 
-su -lp 2000 -c "cmd notification post -S bigtext -t '🔥TWEAK🔥' 'Tag' 'VTEC_Unlock ⚡ปรับแต่ง⚡ Impover Stability Successfull & Protect your system from bootloop detected.'"
+su -lp 2000 -c "cmd notification post -S bigtext -t 'ð¥TWEAKð¥' 'Tag' 'VTEC_Unlock â¡à¸à¸£à¸±à¸à¹à¸à¹à¸â¡ Impover Stability Successfull & Protect your system from bootloop detected.'"
 
 nohup sh $MODDIR/script/shellscript > /dev/null &
 sync && echo 3 > /proc/sys/vm/drop_caches
-echo "Optimizations applied successfully!"
-
-#!/data/adb/magisk/busybox sh
-#CREDIT
-#Bootloop saver by HuskyDG, modified by ez-me
-
-# Get variables
-MODPATH=${0%/*}
-MESSAGE="$(cat "$MODPATH"/msg.txt | head -c100)"
-
-# Log
-log(){
-   TEXT=$@; echo "[`date -Is`]: $TEXT" >> $MODPATH/log.txt
-}
-
-log "Started"
-
-# Modify description
-cp "$MODPATH/module.prop" "$MODPATH/temp.prop"
-sed -Ei "s/^description=(\[.*][[:space:]]*)?/description=[Working🥳. $MESSAGE] /g" "$MODPATH/temp.prop"
-mv "$MODPATH/temp.prop" "$MODPATH/module.prop"
 
 # Define the function
 disable_modules(){
@@ -125,7 +124,6 @@ disable_modules(){
    reboot
    exit
 }
-
 
 # Gather PIDs
 sleep 5

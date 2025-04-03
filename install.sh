@@ -80,7 +80,7 @@ sleep 1
   ui_print " RealHard @xda "
 sleep 1
   ui_print " "
-  ui_print " v2.9 "
+  ui_print " Version 3.7.1 "
 sleep 1
   ui_print " "
   ui_print " Disabled Thermal "
@@ -118,6 +118,5 @@ set_permissions() {
   set_perm $MODPATH/system/bin/opengl 0 0 0755 0755
   set_perm $MODPATH/system/bin/skiagl 0 0 0755 0755
   set_perm $MODPATH/system/bin/skiavk 0 0 0755 0755
-  set_perm $MODPATH/system/bin/vulkan 0 0 0755 0755
   set_perm $MODPATH/system/bin/daemon 0 0 0755
 }

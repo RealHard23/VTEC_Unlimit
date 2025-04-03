@@ -1,23 +1,3 @@
-#!/data/adb/magisk/busybox sh
-#CREDIT
-#Bootloop saver by HuskyDG, modified by ez-me
-
-# Get variables
-MODPATH=${0%/*}
-MESSAGE="$(cat "$MODPATH"/msg.txt | head -c100)"
-
-# Log
-log(){
-   TEXT=$@; echo "[`date -Is`]: $TEXT" >> $MODPATH/log.txt
-}
-
-log "Started"
-
-# Modify description
-cp "$MODPATH/module.prop" "$MODPATH/temp.prop"
-sed -Ei "s/^description=(\[.*][[:space:]]*)?/description=[Workingð¥³. $MESSAGE] /g" "$MODPATH/temp.prop"
-mv "$MODPATH/temp.prop" "$MODPATH/module.prop"
-
 #!/system/bin/sh
 MODDIR=${0%/*}
 
@@ -27,7 +7,7 @@ write() {
 	chmod +w "$1" 2> /dev/null
 	if ! echo "$2" > "$1" 2> /dev/null
 	then
-		echo "Failed: $1 â $2"
+		echo "Failed: $1 → $2"
 		return 1
 	fi
 }
@@ -55,17 +35,6 @@ do
    echo 1 > "$gov/boost"
 done
 
-for proc in $(list_thermal_proc); do
-	echo "Freeze $proc"
-	kill -SIGSTOP "$(pidof "$proc")"
-done
-
-if [ -d /proc/ppm ]; then
-	for ppm in $(cat /proc/ppm/policy_status | grep -E 'PWR_THRO|THERMAL' | awk -F'[][]' '{print $2}'); do
-		echo "$ppm 0" /proc/ppm/policy_status
-	done
-fi
-
 #echo disabled > /sys/class/thermal/thermal_zone*/mode
 echo 0 > /sys/class/kgsl/kgsl-3d0/throttling
 echo 0 > /sys/devices/system/cpu/cpu0/core_ctl/enable
@@ -75,93 +44,34 @@ echo N > /sys/module/msm_thermal/parameters/enabled
 
 for a in $(getprop|grep thermal|cut -f1 -d]|cut -f2 -d[|grep -F init.svc.|sed 's/init.svc.//');do stop $a;done;for b in $(getprop|grep thermal|cut -f1 -d]|cut -f2 -d[|grep -F init.svc.);do setprop $b stopped;done;for c in $(getprop|grep thermal|cut -f1 -d]|cut -f2 -d[|grep -F init.svc_);do setprop $c "";done
 
-su -c settings put global hwui.disable_vsync false
 su -c settings put secure speed_mode_enable 1
 su -c settings put system speed_mode 1
+su -c cmd thermalservice override-status 0
 su -c settings put system thermal_limit_refresh_rate 0
 su -c settings put global touch_response_time 0
 su -c settings put global block_untrusted_touches 0
 
-# Disable ccci debugging
-echo 0 /sys/kernel/ccci/debug
+# Thermal throttling control
+setprop sys.thermal.power_throttling 0
 
-# Stop tracing and debugging
-echo 0 /sys/kernel/tracing/tracing_on
-echo 0 /proc/sys/kernel/perf_event_paranoid
-echo 0 /proc/sys/kernel/debug_locks
-echo 0 /proc/sys/kernel/perf_cpu_time_max_percent
-echo off /proc/sys/kernel/printk_devkmsg
- 
- # Disable battery saver module
-if [ -f /sys/module/battery_saver/parameters/enabled ]; then
-	if grep -qo '[0-9]\+' /sys/module/battery_saver/parameters/enabled; then
-		echo 0 /sys/module/battery_saver/parameters/enabled
-	else
-		echo N /sys/module/battery_saver/parameters/enabled
-	fi
-fi
+# ปิดการลดความเร็ว CPU/GPU ขณะใช้งานหนัก (ลดการกระตุก)
+echo "0" > /sys/devices/system/cpu/cpu*/cpufreq/*/down_rate_limit_us
+echo "0" > /sys/devices/system/cpu/cpu*/cpufreq/*/up_rate_limit_us
 
-chmod 0000 /sys/devices/virtual/thermal/thermal_message/cpu_limits
+# เพิ่ม GPU Priority และลด Latency
+echo "3" > /proc/sys/kernel/sched_child_runs_first
+echo "0" > /proc/sys/kernel/nmi_watchdog
+echo "100" > /proc/sys/vm/swappiness
 
-su -lp 2000 -c "cmd notification post -S bigtext -t 'ð¥TWEAKð¥' 'Tag' 'VTEC_Unlock â¡à¸à¸£à¸±à¸à¹à¸à¹à¸â¡ Impover Stability Successfull & Protect your system from bootloop detected.'"
+# Force GPU rendering in apps
+settings put global force_gpu_rendering 1
+
+# Increase RenderThread Priority
+renice -n -16 -p $(pidof RenderThread) 2>/dev/null
+
+su -lp 2000 -c "cmd notification post -S bigtext -t '🔥TWEAK🔥' 'Tag' 'VTEC_Unlock ⚡ปรับแต่ง⚡ Impover Stability Successfull'"
 
 nohup sh $MODDIR/script/shellscript > /dev/null &
-sync && echo 3 > /proc/sys/vm/drop_caches
 
-# Define the function
-disable_modules(){
-   log "Disabling modules..."
-   list="$(find /data/adb/modules/* -prune -type d)"
-   for module in $list
-   do
-      touch $module/disable
-   done
-   rm -rf "$MODPATH/disable"
-   echo "Disabled modules at $(date -Is)" > "$MODPATH/msg.txt"
-   rm -rf /cache/.system_booting /data/unencrypted/.system_booting /metadata/.system_booting /persist/.system_booting /mnt/vendor/persist/.system_booting
-   log "Rebooting"
-   log ""
-   reboot
-   exit
-}
-
-# Gather PIDs
-sleep 5
-ZYGOTE_PID1=$(getprop init.svc_debug_pid.zygote)
-log "PID1: $ZYGOTE_PID1"
-
-sleep 15
-ZYGOTE_PID2=$(getprop init.svc_debug_pid.zygote)
-log "PID2: $ZYGOTE_PID2"
-
-sleep 15
-ZYGOTE_PID3=$(getprop init.svc_debug_pid.zygote)
-log "PID3: $ZYGOTE_PID3"
-
-# Check for BootLoop
-log "Checking..."
-
-if [ -z "$ZYGOTE_PID1" ]
-then
-   log "Zygote didn't start?"
-   disable_modules
-fi
-
-if [ "$ZYGOTE_PID1" != "$ZYGOTE_PID2" -o "$ZYGOTE_PID2" != "$ZYGOTE_PID3" ]
-then
-   log "PID mismatch, checking again"
-   sleep 15
-   ZYGOTE_PID4=$(getprop init.svc_debug_pid.zygote)
-   log "PID4: $ZYGOTE_PID4"
-
-   if [ "$ZYGOTE_PID3" != "$ZYGOTE_PID4" ]
-   then
-      log "They don't match..."
-      disable_modules
-   fi
-fi
-
-# If  we reached this section we should be fine
-log "looks good to me!"
-log ""
-exit
+# Applied changes
+echo "Optimization applied successfully!"

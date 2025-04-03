@@ -61,7 +61,7 @@ echo "0" > /sys/devices/system/cpu/cpu*/cpufreq/*/up_rate_limit_us
 # เพิ่ม GPU Priority และลด Latency
 echo "3" > /proc/sys/kernel/sched_child_runs_first
 echo "0" > /proc/sys/kernel/nmi_watchdog
-echo "100" > /proc/sys/vm/swappiness
+echo "150" > /proc/sys/vm/swappiness
 
 # Force GPU rendering in apps
 settings put global force_gpu_rendering 1

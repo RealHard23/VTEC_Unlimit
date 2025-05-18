@@ -60,14 +60,10 @@ echo "0" > /sys/devices/system/cpu/cpu*/cpufreq/*/up_rate_limit_us
 
 # เพิ่ม GPU Priority และลด Latency
 echo "3" > /proc/sys/kernel/sched_child_runs_first
-echo "0" > /proc/sys/kernel/nmi_watchdog
-echo "150" > /proc/sys/vm/swappiness
-
-# Force GPU rendering in apps
-settings put global force_gpu_rendering 1
+echo "200" > /proc/sys/vm/swappiness
 
 # Increase RenderThread Priority
-renice -n -16 -p $(pidof RenderThread) 2>/dev/null
+#renice -n -5 -p $(pidof RenderThread) 2>/dev/null
 
 su -lp 2000 -c "cmd notification post -S bigtext -t '🔥TWEAK🔥' 'Tag' 'VTEC_Unlock ⚡ปรับแต่ง⚡ Impover Stability Successfull'"
 

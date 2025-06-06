@@ -46,7 +46,7 @@ for a in $(getprop|grep thermal|cut -f1 -d]|cut -f2 -d[|grep -F init.svc.|sed 's
 
 su -c settings put secure speed_mode_enable 1
 su -c settings put system speed_mode 1
-su -c settings put secure POWER_MODE high
+su -c settings put system POWER_MODE high
 su -c settings put secure fps_divisor 0
 su -c cmd thermalservice override-status 0
 su -c settings put system thermal_limit_refresh_rate 0

@@ -46,24 +46,27 @@ for a in $(getprop|grep thermal|cut -f1 -d]|cut -f2 -d[|grep -F init.svc.|sed 's
 
 su -c settings put secure speed_mode_enable 1
 su -c settings put system speed_mode 1
+su -c settings put secure POWER_MODE high
+su -c settings put secure fps_divisor 0
 su -c cmd thermalservice override-status 0
 su -c settings put system thermal_limit_refresh_rate 0
 su -c settings put global touch_response_time 0
 su -c settings put global block_untrusted_touches 0
 
-# Thermal throttling control
-setprop sys.thermal.power_throttling 0
-
 # ปิดการลดความเร็ว CPU/GPU ขณะใช้งานหนัก (ลดการกระตุก)
 echo "0" > /sys/devices/system/cpu/cpu*/cpufreq/*/down_rate_limit_us
 echo "0" > /sys/devices/system/cpu/cpu*/cpufreq/*/up_rate_limit_us
 
-# เพิ่ม GPU Priority และลด Latency
-echo "3" > /proc/sys/kernel/sched_child_runs_first
 echo "200" > /proc/sys/vm/swappiness
 
-# Increase RenderThread Priority
-#renice -n -5 -p $(pidof RenderThread) 2>/dev/null
+ # Set CPU boost parameters
+ if [ -f /sys/module/cpu_boost/parameters/cpu_boost ]; then
+     echo "1" > /sys/module/cpu_boost/parameters/cpu_boost
+ fi
+    
+ if [ -f /sys/module/cpu_boost/parameters/boost_ms ]; then
+     echo "100" > /sys/module/cpu_boost/parameters/boost_ms
+ fi
 
 su -lp 2000 -c "cmd notification post -S bigtext -t '🔥TWEAK🔥' 'Tag' 'VTEC_Unlock ⚡ปรับแต่ง⚡ Impover Stability Successfull'"
 

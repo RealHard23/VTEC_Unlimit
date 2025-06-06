@@ -1,0 +1,57 @@
+name: Build & Release Magisk Module
+
+on:
+  push:
+    tags:
+      - 'v4.1.2'  # เช่น v1.2, v2.0
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set version info
+        id: vars
+        run: |
+          TAG_NAME=${GITHUB_REF#refs/tags/}
+          VERSION_NAME=${TAG_NAME#v}
+          VERSION_CODE=$(echo "$VERSION_NAME" | tr -d '.')
+          echo "VERSION_NAME=$VERSION_NAME" >> $GITHUB_ENV
+          echo "VERSION_CODE=$VERSION_CODE" >> $GITHUB_ENV
+
+      - name: Zip Magisk module
+        run: |
+          mkdir -p dist
+          zip -r "dist/VTEC_Unlimit-v${{ env.VERSION_NAME }}.zip" . -x ".git*" -x "dist/*" -x ".github/*"
+
+      - name: Upload Release ZIP
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/VTEC_Unlimit-v${{ env.VERSION_NAME }}.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update update.json
+        run: |
+          cat <<EOF > update.json
+          {
+            "version": "${{ env.VERSION_NAME }}",
+            "versionCode": ${{ env.VERSION_CODE }},
+            "zipUrl": "https://github.com/${{ github.repository }}/releases/download/v${{ env.VERSION_NAME }}/VTEC_Unlimit-v${{ env.VERSION_NAME }}.zip",
+            "changelog": "🔧 อัปเดตเวอร์ชันใหม่โดยอัตโนมัติ",
+            "description": "ปลดล็อก VTEC Unlimit สำหรับอุปกรณ์ที่รองรับ",
+            "minMagisk": "24.0"
+          }
+          EOF
+
+      - name: Commit updated update.json
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git pull --rebase
+          git add update.json
+          git commit -m "🤖 Auto update update.json for v${{ env.VERSION_NAME }}"
+          git push

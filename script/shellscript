@@ -4,17 +4,12 @@ sleep 20
 
 max=$(cat /sys/devices/system/cpu/cpufreq/policy0/cpuinfo_max_freq)
 max=$(cat /sys/devices/system/cpu/cpufreq/policy3/cpuinfo_max_freq)
+max=$(cat /sys/devices/system/cpu/cpufreq/policy4/cpuinfo_max_freq)
 max=$(cat /sys/devices/system/cpu/cpufreq/policy7/cpuinfo_max_freq)
 echo "$max" > /sys/devices/system/cpu/cpufreq/policy0/scaling_max_freq
 echo "$max" > /sys/devices/system/cpu/cpufreq/policy3/scaling_max_freq
+echo "$max" > /sys/devices/system/cpu/cpufreq/policy4/scaling_max_freq
 echo "$max" > /sys/devices/system/cpu/cpufreq/policy7/scaling_max_freq
-
-temperature="150000"
-    for zone in /sys/class/thermal/thermal_zone*; do
-    if [ -f "$zone/trip_point_0_temp" ]; then
-        echo "$temperature" > "$zone/trip_point_0_temp"
-    fi
-done
 
 stop="disabled"
     for zone in /sys/class/thermal/thermal_zone*; do
@@ -22,3 +17,10 @@ stop="disabled"
         echo "$stop" > "$zone/mode"
    fi
 done
+
+# Override thermal limits
+    for thermal_limit in /sys/class/thermal/thermal_zone*/trip_point_*_temp; do
+        if [ -f "$thermal_limit" ]; then
+            echo "150000" > "$thermal_limit" 2>/dev/null
+        fi
+    done

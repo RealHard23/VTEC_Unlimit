@@ -1,62 +1,16 @@
-name: Build & Release Magisk Module
-
-on:
-  push:
-    tags:
-      - 'v*'  # trigger เมื่อมี tag เริ่มต้นด้วย 'v'
-
-permissions:
-  contents: write  # สำคัญมาก! เพื่อให้ push และ release ได้
-
-jobs:
-  build-and-release:
-    runs-on: ubuntu-latest
-
-    env:
-      VERSION: ${{ github.ref_name }}
-      ZIP_NAME: VTEC_Unlimit-${{ github.ref_name }}.zip
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Set up Git config
+      - name: Commit updated update.json
         run: |
-          git config user.name "github-actions"
-          git config user.email "actions@github.com"
-
-      - name: Create release zip
-        run: |
-          cd ${{ github.workspace }}
-          zip -r ${{ env.ZIP_NAME }} . -x ".git*" ".github*" "update.json"
-
-      - name: Update update.json
-        run: |
-          DOWNLOAD_URL="https://github.com/${{ github.repository }}/releases/download/${{ env.VERSION }}/${{ env.ZIP_NAME }}"
-          cat <<EOF > update.json
-          {
-            "version": "${{ env.VERSION }}",
-            "versionCode": 1,
-            "zipUrl": "${DOWNLOAD_URL}",
-            "changelog": "- Auto-generated release from GitHub Actions"
-          }
-          EOF
-
-      - name: Push update.json to main branch
-        run: |
-          git switch main
-          cp update.json update.json
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # เพิ่ม update.json เข้าสู่ staging area
           git add update.json
-          git commit -m "Update update.json for ${{ env.VERSION }}" || echo "No changes to commit"
-          git push origin main
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ env.VERSION }}
-          name: Release ${{ env.VERSION }}
-          body: |
-            - Auto-generated release for ${{ env.VERSION }}
-          files: ${{ env.ZIP_NAME }}
+          
+          # ตรวจสอบว่ามีอะไรต้อง commit หรือไม่
+          git diff-index --quiet HEAD || (
+            # ถ้ามีสิ่งที่ต้อง commit
+            git commit -m "Update update.json [skip ci]"
+            git push
+          )
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

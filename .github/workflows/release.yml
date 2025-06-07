@@ -1,4 +1,4 @@
-Name: Build & Release Magisk Module # ชื่อของ Workflow (บรรทัดที่ 1 ต้องเป็นอันนี้)
+name: Build & Release Magisk Module # ชื่อของ Workflow (บรรทัดที่ 1 ต้องเป็นอันนี้)
 
 on:
   push:

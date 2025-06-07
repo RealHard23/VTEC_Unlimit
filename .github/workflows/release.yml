@@ -3,55 +3,55 @@ name: Build & Release Magisk Module
 on:
   push:
     tags:
-      - 'v4.1.2'  # เช่น v1.2, v2.0
+      - 'v*'
 
 jobs:
-  build:
+  build-and-release:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
-      - name: Set version info
+      - name: Extract version info
         id: vars
         run: |
-          TAG_NAME=${GITHUB_REF#refs/tags/}
-          VERSION_NAME=${TAG_NAME#v}
-          VERSION_CODE=$(echo "$VERSION_NAME" | tr -d '.')
-          echo "VERSION_NAME=$VERSION_NAME" >> $GITHUB_ENV
+          VERSION="${GITHUB_REF#refs/tags/}"
+          VERSION_CODE=$(echo "$VERSION" | tr -d v. )  # v4.1.2 → 412
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
           echo "VERSION_CODE=$VERSION_CODE" >> $GITHUB_ENV
 
-      - name: Zip Magisk module
+      - name: Create zip file
         run: |
-          mkdir -p dist
-          zip -r "dist/VTEC_Unlimit-v${{ env.VERSION_NAME }}.zip" . -x ".git*" -x "dist/*" -x ".github/*"
+          zip -r VTEC_Unlimit-${{ env.VERSION }}.zip . -x ".git*" ".github*" "*.zip" "*.yml"
 
-      - name: Upload Release ZIP
-        uses: softprops/action-gh-release@v2
-        with:
-          files: dist/VTEC_Unlimit-v${{ env.VERSION_NAME }}.zip
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Update update.json
+      - name: Create update.json
         run: |
           cat <<EOF > update.json
           {
-            "version": "${{ env.VERSION_NAME }}",
-            "versionCode": ${{ env.VERSION_CODE }},
-            "zipUrl": "https://github.com/${{ github.repository }}/releases/download/v${{ env.VERSION_NAME }}/VTEC_Unlimit-v${{ env.VERSION_NAME }}.zip",
-            "changelog": "🔧 อัปเดตเวอร์ชันใหม่โดยอัตโนมัติ",
-            "description": "ปลดล็อก VTEC Unlimit สำหรับอุปกรณ์ที่รองรับ",
-            "minMagisk": "24.0"
+            "version": "${{ env.VERSION }}",
+            "versionCode": "${{ env.VERSION_CODE }}",
+            "zip": "https://github.com/${{ github.repository }}/releases/download/${{ env.VERSION }}/VTEC_Unlimit-${{ env.VERSION }}.zip",
+            "changelog": "- ปรับจูนรอบเครื่องยนต์ให้ตอบสนองไวขึ้น\\n- เพิ่มความเข้ากันได้กับอุปกรณ์เพิ่มเติม\\n- แก้ไขปัญหาโมดูลไม่ทำงานบนบางเครื่อง"
           }
           EOF
 
-      - name: Commit updated update.json
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.VERSION }}
+          name: VTEC Unlimit ${{ env.VERSION }}
+          files: |
+            VTEC_Unlimit-${{ env.VERSION }}.zip
+            update.json
+
+      - name: Commit update.json to main branch
         run: |
           git config user.name "github-actions"
           git config user.email "actions@github.com"
-          git pull --rebase
+          git fetch origin main
+          git checkout main
+          cp update.json update.json
           git add update.json
-          git commit -m "🤖 Auto update update.json for v${{ env.VERSION_NAME }}"
-          git push
+          git commit -m "Update update.json for ${{ env.VERSION }}"
+          git push origin main

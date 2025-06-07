@@ -1,1 +1,6 @@
-{"version": "1.0.0", "changelog": "Initial release"}
+{
+  "version": "v4.1.2",
+  "versionCode": "43",
+  "zipUrl": "https://github.com/RealHard23/VTEC_Unlimit/releases/download/v4.1.2/VTEC_Unlimit_v4.1.2.zip",
+  "changelog": "https://raw.githubusercontent.com/RealHard23/VTEC_Unlimit/main/changelog.md"
+}

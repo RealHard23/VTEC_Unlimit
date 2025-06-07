@@ -1,6 +1,1 @@
-{
-  "version": "v4.1.2",
-  "versionCode": "412",
-  "zip": "https://github.com/RealHard23/VTEC_Unlimit/releases/download/v4.1.2/VTEC_Unlimit_v4.1.2.zip",
-  "changelog": "- ปรับจูนรอบเครื่องยนต์ให้ตอบสนองไวขึ้น\n- เพิ่มความเข้ากันได้กับอุปกรณ์เพิ่มเติม\n- แก้ไขปัญหาโมดูลไม่ทำงานบนบางเครื่อง"
-}
+{"version": "1.0.0", "changelog": "Initial release"}

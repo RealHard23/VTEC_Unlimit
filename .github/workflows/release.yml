@@ -3,59 +3,60 @@ name: Build & Release Magisk Module
 on:
   push:
     tags:
-      - 'v*'  # ทำงานเมื่อมีการ push tag เช่น v4.1.2
+      - 'v*'  # trigger เมื่อมี tag เริ่มต้นด้วย 'v'
+
+permissions:
+  contents: write  # สำคัญมาก! เพื่อให้ push และ release ได้
 
 jobs:
   build-and-release:
     runs-on: ubuntu-latest
 
+    env:
+      VERSION: ${{ github.ref_name }}
+      ZIP_NAME: VTEC_Unlimit-${{ github.ref_name }}.zip
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # สำคัญ: ให้สามารถ push ได้
+          fetch-depth: 0
 
-      - name: Extract version info
-        id: vars
+      - name: Set up Git config
         run: |
-          VERSION="${GITHUB_REF#refs/tags/}"
-          VERSION_CODE=$(echo "$VERSION" | tr -d v. )  # v4.1.2 → 412
-          echo "VERSION=$VERSION" >> $GITHUB_ENV
-          echo "VERSION_CODE=$VERSION_CODE" >> $GITHUB_ENV
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
 
-      - name: Create zip file
+      - name: Create release zip
         run: |
-          zip -r VTEC_Unlimit-${{ env.VERSION }}.zip . -x ".git*" ".github*" "*.zip" "*.yml"
+          cd ${{ github.workspace }}
+          zip -r ${{ env.ZIP_NAME }} . -x ".git*" ".github*" "update.json"
 
-      - name: Create update.json
+      - name: Update update.json
         run: |
+          DOWNLOAD_URL="https://github.com/${{ github.repository }}/releases/download/${{ env.VERSION }}/${{ env.ZIP_NAME }}"
           cat <<EOF > update.json
           {
             "version": "${{ env.VERSION }}",
-            "versionCode": "${{ env.VERSION_CODE }}",
-            "zip": "https://github.com/${{ github.repository }}/releases/download/${{ env.VERSION }}/VTEC_Unlimit-${{ env.VERSION }}.zip",
-            "changelog": "- ปรับจูนรอบเครื่องยนต์ให้ตอบสนองไวขึ้น\\n- เพิ่มความเข้ากันได้กับอุปกรณ์เพิ่มเติม\\n- แก้ไขปัญหาโมดูลไม่ทำงานบนบางเครื่อง"
+            "versionCode": 1,
+            "zipUrl": "${DOWNLOAD_URL}",
+            "changelog": "- Auto-generated release from GitHub Actions"
           }
           EOF
+
+      - name: Push update.json to main branch
+        run: |
+          git switch main
+          cp update.json update.json
+          git add update.json
+          git commit -m "Update update.json for ${{ env.VERSION }}" || echo "No changes to commit"
+          git push origin main
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.VERSION }}
-          name: VTEC Unlimit ${{ env.VERSION }}
-          files: |
-            VTEC_Unlimit-${{ env.VERSION }}.zip
-            update.json
-
-      - name: Push update.json to main branch
-        run: |
-          git config user.name "github-actions"
-          git config user.email "actions@github.com"
-
-          git fetch origin main
-          git checkout main
-
-          cp update.json update.json
-          git add update.json
-          git commit -m "Update update.json for ${{ env.VERSION }}" || echo "No changes to commit"
-          git push origin main
+          name: Release ${{ env.VERSION }}
+          body: |
+            - Auto-generated release for ${{ env.VERSION }}
+          files: ${{ env.ZIP_NAME }}

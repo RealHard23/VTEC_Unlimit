@@ -1,120 +1,89 @@
-name: Build & Release Magisk Module
+Name: Build & Release Magisk Module # ชื่อของ Workflow (บรรทัดที่ 1 ต้องเป็นอันนี้)
 
 on:
   push:
-    tags:
-      - 'v*'
-  workflow_dispatch:
+    branches:
+      - main # หรือ master หากคุณใช้ branch หลักชื่อ master
+  workflow_dispatch: # อนุญาตให้รัน workflow นี้ได้ด้วยตนเองจากหน้า GitHub
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
+  build: # ชื่อของ Job นี้
+    runs-on: ubuntu-latest # รันบนระบบปฏิบัติการ Ubuntu เวอร์ชันล่าสุด
 
     steps:
-      - name: Checkout repository
+      - name: Set up job # ขั้นตอนเริ่มต้น
+        uses: actions/checkout@v4 # ใช้ action ในการ checkout code จาก repository
+
+      - name: Checkout repository # ตรวจสอบ repository
         uses: actions/checkout@v4
 
-      - name: Get tag version and set module details
-        id: get_module_details
+      - name: Set version info # กำหนดข้อมูลเวอร์ชัน (ตัวอย่าง)
         run: |
-          REF_NAME=${{ github.ref_name }}
-          if [[ "$REF_NAME" =~ ^v([0-9.]+)$ ]]; then
-            MODULE_VERSION="${BASH_REMATCH[1]}"
-          else
-            echo "::error::Invalid tag format. Expected 'vX.Y.Z'"
-            exit 1
-          fi
-          
-          # ใช้ versionCode ตามที่คุณระบุมา (44)
-          MODULE_VERSION_CODE="44" # หรือคุณอาจจะให้ update.json ที่แก้ไขเองกำหนด versionCode ไปเลยก็ได้
-          
-          ZIP_FILE_NAME="VTEC_Unlimit_${TAG_NAME}.zip" # <--- **เปลี่ยน VTEC_Unlimit เป็นชื่อโมดูลของคุณ**
-          
-          echo "MODULE_VERSION=$MODULE_VERSION" >> $GITHUB_ENV
-          echo "MODULE_VERSION_CODE=$MODULE_VERSION_CODE" >> $GITHUB_ENV
-          echo "TAG_NAME=$REF_NAME" >> $GITHUB_ENV
-          echo "ZIP_FILE_NAME=$ZIP_FILE_NAME" >> $GITHUB_ENV
-          
-          echo "Detected Tag: $TAG_NAME"
-          echo "Module Version: $MODULE_VERSION"
-          echo "Module Version Code: $MODULE_VERSION_CODE"
-          echo "Expected ZIP File Name: $ZIP_FILE_NAME"
+          echo "Setting version info..."
+          # เพิ่มคำสั่งของคุณที่นี่เพื่อกำหนดเวอร์ชัน หากมี
+          # ตัวอย่าง: echo "MODULE_VERSION=1.0.0" >> $GITHUB_ENV
 
-      - name: Update module.prop # ยังคงอัปเดต module.prop ตาม tag
+      - name: Zip Magisk module # บีบอัด Magisk module
         run: |
-          if [ ! -f "module.prop" ]; then
-            echo "::error::module.prop not found! Please ensure it's in your repository root."
-            exit 1
-          fi
-          sed -i "s/^version=.*/version=${{ env.MODULE_VERSION }}/" module.prop
-          sed -i "s/^versionCode=.*/versionCode=${{ env.MODULE_VERSION_CODE }}/" module.prop
-          echo "Updated module.prop content:"
-          cat module.prop
-
-      - name: Zip Magisk module # สร้าง ZIP file
-        run: |
-          echo "Zipping Magisk module into ${{ env.ZIP_FILE_NAME }}..."
-          # **สำคัญ: ปรับ list ของไฟล์/โฟลเดอร์ในคำสั่ง zip ให้ตรงกับโครงสร้างโมดูลของคุณ**
-          zip -r "${{ env.ZIP_FILE_NAME }}" . \
-            -x ".git/*" ".github/*" "README.md" "LICENSE" \
-            -x ".*" "__MACOSX" "*.DS_Store"
-          echo "Successfully created ZIP: ${{ env.ZIP_FILE_NAME }}"
-
-      # *** ลบขั้นตอน "Create / Update update.json" ออกไปเลย ***
-      # - name: Create / Update update.json
-      #   run: |
-      #     ... (โค้ดสำหรับสร้าง update.json) ...
-
-      - name: Commit updated module.prop and existing update.json # ขั้นตอนนี้จะ commit module.prop ที่ถูกแก้ไข และ update.json ที่คุณแก้ไขเอง
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+          echo "Zipping Magisk module..."
+          # เพิ่มคำสั่งของคุณที่นี่เพื่อบีบอัด Magisk module
+          # เช่น: zip -r module.zip * -x .git/ .github/
+          # ตรวจสอบให้แน่ใจว่าไฟล์ที่จำเป็นอยู่ในไดเรกทอรีนี้ก่อนทำการ zip
+          # สมมติว่ามีโฟลเดอร์สำหรับ Magisk module อยู่แล้ว
+          # ตัวอย่างคำสั่ง zip:
+          # cd <path_to_your_magisk_module_directory>
+          # zip -r ../MagiskModule.zip . -x .git/ .github/
+          # หรือถ้าทุกอย่างอยู่ใน root ของ repo แล้วและต้องการ zip เฉพาะไฟล์ที่เกี่ยวข้อง
+          # zip -r module.zip module_folder/ system/ common/ post-fs-data.sh service.sh module.prop customize.sh uninstall.sh -x "*.git*" "*.github*"
           
-          git add module.prop # เพิ่ม module.prop ที่ถูกแก้ไข
-          # ตรวจสอบว่า update.json มีการเปลี่ยนแปลง (คุณแก้ไขเอง) แล้วเพิ่มเข้า staging
-          # ถ้าคุณแก้ไข update.json แล้ว การ commit นี้จะรวมมันไปด้วย
-          if [ -f "update.json" ]; then
-            git add update.json
-          fi
+          # ตัวอย่างแบบง่ายๆ (ปรับตามโครงสร้างโปรเจกต์ของคุณ)
+          mkdir -p build_output
+          echo "This is a placeholder for your module content." > build_output/module.txt
+          zip -r MagiskModule.zip build_output/
+          echo "Successfully zipped Magisk module."
+
+      - name: Update update.json # อัปเดตไฟล์ update.json
+        run: |
+          echo "Updating update.json..."
+          # แก้ไขบรรทัดนี้เพื่อสร้าง JSON ตามโครงสร้างที่คุณต้องการ
+          cat << EOF > update.json
+          {
+            "version": "v4.1.2",
+            "versionCode": "43",
+            "zipUrl": "https://github.com/RealHard23/VTEC_Unlimit/releases/download/v4.1.2/VTEC_Unlimit_v4.1.2.zip",
+            "changelog": "https://raw.githubusercontent.com/RealHard23/VTEC_Unlimit/main/changelog.md"
+          }
+          EOF
+          echo "Successfully updated update.json."
+
+      - name: Commit updated update.json # Commit การเปลี่ยนแปลงใน update.json และ push กลับไปที่ repo
+        # นี่คือส่วนที่แก้ไขจากปัญหาเดิม
+        run: |
+          git config user.name "github-actions[bot]" # ตั้งค่าผู้ใช้สำหรับ commit
+          git config user.email "github-actions[bot]@users.noreply.github.com" # ตั้งค่าอีเมลสำหรับ commit
           
-          # ตรวจสอบว่ามีไฟล์ที่ถูก staged ที่ต้อง commit หรือไม่
-          if ! git diff-index --quiet HEAD; then
-            echo "Committing changes..."
-            git commit -m "Build: Update module.prop and update.json for ${{ env.TAG_NAME }} [skip ci]"
-            git push
-          else
-            echo "No changes to commit for module.prop or update.json."
-          fi
+          # เพิ่มไฟล์ update.json เข้าสู่ staging area
+          git add update.json
+          
+          # ตรวจสอบว่ามีอะไรต้อง commit หรือไม่
+          # ถ้าไม่มีการเปลี่ยนแปลงที่ต้อง commit, git diff-index จะคืนค่า 0 และจะไม่เข้าในวงเล็บ
+          git diff-index --quiet HEAD || (
+            # ถ้ามีสิ่งที่ต้อง commit (ไฟล์ update.json มีการเปลี่ยนแปลง)
+            git commit -m "Update update.json [skip ci]" # สร้าง commit พร้อมข้อความ (และ [skip ci] เพื่อไม่ให้รัน workflow ซ้ำ)
+            git push # push commit ขึ้นไปยัง repository
+          )
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # ใช้ GITHUB_TOKEN ที่ GitHub จัดเตรียมให้สำหรับการ push
 
-      - name: Create GitHub Release
-        id: create_release
-        uses: softprops/action-gh-release@v1
+      - name: Upload Release ZIP # อัปโหลดไฟล์ ZIP ไปยัง Release
+        uses: actions/upload-artifact@v4 # ใช้ action ในการอัปโหลด artifact
         with:
-          tag_name: ${{ env.TAG_NAME }}
-          name: Release ${{ env.TAG_NAME }}
-          body: |
-            New release of VTEC_Unlimit module.
-            
-            Version: ${{ env.MODULE_VERSION }}
-            Version Code: ${{ env.MODULE_VERSION_CODE }}
-            
-            ---
-            Please check update.json or module.prop for full changelog.
-            
-            Download: ${{ env.ZIP_FILE_NAME }}
-          draft: false
-          prerelease: false
-          files: ${{ env.ZIP_FILE_NAME }}
+          name: MagiskModule
+          path: MagiskModule.zip # ระบุ path ของไฟล์ ZIP ที่ต้องการอัปโหลด
 
-      - name: Upload update.json to Release Assets # อัปโหลด update.json ที่คุณแก้ไขเอง ไปยัง Release
-        if: success()
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: ${{ env.TAG_NAME }}
-          files: update.json
+      - name: Post Checkout repository # ขั้นตอนหลังการ checkout (ทำความสะอาด)
+        run: echo "Post checkout tasks complete." # สามารถเพิ่มคำสั่งทำความสะอาดหรืออื่น ๆ ได้ที่นี่
 
-      - name: Complete job
-        run: echo "Build and Release job completed successfully for ${{ env.TAG_NAME }}."
-        
+      - name: Complete job # ขั้นตอนสุดท้ายของ Job
+        run: echo "Build and Release job completed successfully."
+

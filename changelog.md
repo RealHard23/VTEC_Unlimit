@@ -1,8 +1,8 @@
 v4.2
 
-บังคับให้ใช้ Hardware Composer (HWC) เพื่อประสิทธิภาพที่ดีขึ้น
-ลดความหน่วงในการแสดงผล
-ปิด Backpressure ของ GL เพื่อความลื่นไหล
-การปรับปรุงความเร็วในการเปิดแอปและการจัดการหน่วยความจำ
+# Force Hardware Composer (HWC) for better performance
+# Reduce rendering latency
+# Turn off GL backpressure for smoothness
+# Improve app launch speed and memory management
 
 This module removes the thermal control limitation, which may cause your phone to overheat. Use at your own risk.

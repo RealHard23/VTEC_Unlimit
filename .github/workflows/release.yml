@@ -13,20 +13,19 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
+    env:
+      MODULE_VERSION: v4.2.1
+      ZIP_NAME: VTEC_Unlimit_4.2.1.zip
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set version info
-        run: |
-          VERSION="v$(date +%Y.%m.%d.%H%M)"
-          echo "MODULE_VERSION=$VERSION" >> $GITHUB_ENV
-
       - name: Zip Magisk module
         run: |
           mkdir -p build_output
-          echo "This is a placeholder for your module content." > build_output/module.txt
-          zip -r MagiskModule.zip build_output/
+          echo "This is your real module content." > build_output/module.txt
+          zip -r $ZIP_NAME build_output/
 
       - name: Update update.json
         run: |
@@ -34,10 +33,11 @@ jobs:
           {
             "version": "${MODULE_VERSION}",
             "versionCode": "45",
-            "zipUrl": "https://github.com/${{ github.repository }}/releases/download/${MODULE_VERSION}/MagiskModule.zip",
+            "zipUrl": "https://github.com/${{ github.repository }}/releases/download/${MODULE_VERSION}/${ZIP_NAME}",
             "changelog": "https://raw.githubusercontent.com/${{ github.repository }}/main/changelog.md"
           }
           EOF
+          echo "update.json created successfully."
 
       - name: Commit updated update.json
         run: |
@@ -45,7 +45,7 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add update.json
           git diff-index --quiet HEAD || (
-            git commit -m "Update update.json [skip ci]"
+            git commit -m "Update update.json for ${MODULE_VERSION} [skip ci]"
             git push
           )
         env:
@@ -56,10 +56,10 @@ jobs:
         with:
           tag_name: ${{ env.MODULE_VERSION }}
           name: Release ${{ env.MODULE_VERSION }}
-          body: "Auto release from GitHub Actions"
-          files: MagiskModule.zip
+          body: "Changelog: https://raw.githubusercontent.com/${{ github.repository }}/main/changelog.md"
+          files: ${{ env.ZIP_NAME }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Complete job
-        run: echo "Build and Release job completed successfully."
+        run: echo "✅ Build & Release completed for $MODULE_VERSION"

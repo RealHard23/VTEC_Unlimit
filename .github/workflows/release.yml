@@ -64,8 +64,9 @@ jobs:
         with:
           tag_name: ${{ env.MODULE_VERSION }}
           name: Release ${{ env.MODULE_VERSION }}
-          body: >
-            🔓 VTEC Unlock ${{ env.MODULE_VERSION }} - Version Code: ${{ env.VERSION_CODE }}  
+          # แก้ไขบรรทัด body เพื่อให้แน่ใจว่าไม่มีปัญหาการเว้นวรรคหรือการจัดรูปแบบ
+          body: |
+            🔓 VTEC Unlock ${{ env.MODULE_VERSION }} - Version Code: ${{ env.VERSION_CODE }}
             📄 Changelog: https://raw.githubusercontent.com/${{ github.repository }}/main/changelog.md
           files: ${{ env.ZIP_NAME }}
         env:
@@ -73,3 +74,4 @@ jobs:
 
       - name: Done
         run: echo "✅ Magisk Module Released: $MODULE_VERSION"
+

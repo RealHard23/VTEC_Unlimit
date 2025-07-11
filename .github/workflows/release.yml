@@ -1,42 +1,42 @@
-name: Build & Release Magisk Module # ชื่อของ Workflow นี้
+name: Build & Release Magisk Module
 
 on:
-  push: # Workflow จะทำงานเมื่อมีการ push โค้ด
-    branches: # กำหนดให้ทำงานเฉพาะ branch 'main'
+  push:
+    branches:
       - main
-  workflow_dispatch: # อนุญาตให้เรียกใช้งาน Workflow ได้ด้วยตนเองผ่านหน้า UI ของ GitHub
+  workflow_dispatch:
 
 permissions:
-  contents: write # ให้สิทธิ์ Workflow ในการเขียนข้อมูล (เช่น สร้าง Release, อัปเดตไฟล์)
+  contents: write
 
-env: # กำหนดตัวแปรสภาพแวดล้อมที่ใช้ใน Workflow นี้
-  MODULE_VERSION: v4.2.1 # เวอร์ชั่นของ Magisk Module
-  VERSION_CODE: 45 # รหัสเวอร์ชั่น (version code) ของ Module
-  ZIP_NAME: VTEC_Unlimit_4.2.1.zip # ชื่อไฟล์ Zip ที่จะสร้าง
+env:
+  MODULE_VERSION: v4.2.1
+  VERSION_CODE: 45
+  ZIP_NAME: VTEC_Unlimit_4.2.1.zip
 
-jobs: # กำหนด Job ที่จะรัน
-  build: # ชื่อของ Job
-    runs-on: ubuntu-latest # กำหนดให้ Job รันบน Ubuntu เวอร์ชันล่าสุด
+jobs:
+  build:
+    runs-on: ubuntu-latest
 
-    steps: # กำหนดขั้นตอนการทำงานของ Job นี้
-      - name: Checkout repository # ชื่อขั้นตอน: Checkout โค้ดจาก Repository
-        uses: actions/checkout@v4 # ใช้ Action 'checkout' เวอร์ชัน 4 เพื่อดึงโค้ด
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - name: Zip Magisk module # ชื่อขั้นตอน: สร้างไฟล์ Zip ของ Magisk Module
-        run: | # กำหนดให้รันคำสั่ง Shell แบบหลายบรรทัด
-          zip -r "$ZIP_NAME" \ # คำสั่ง zip เพื่อบีบอัดไฟล์และโฟลเดอร์
-            module.prop \ # ไฟล์ module.prop
-            install.sh \ # ไฟล์ install.sh
-            uninstall.sh \ # ไฟล์ uninstall.sh
-            system/ \ # โฟลเดอร์ system/
-            common/ \ # โฟลเดอร์ common/
-            script/ \ # โฟลเดอร์ script/
-            META-INF/ \ # โฟลเดอร์ META-INF/
-            -x "*.git*" "*.github*" "README.md" "LICENSE.md" "changelog.md" "update.json" # ไม่รวมไฟล์/โฟลเดอร์เหล่านี้ใน zip
-          echo "✅ ZIP created: $ZIP_NAME" # แสดงข้อความยืนยันการสร้างไฟล์ Zip
+      - name: Zip Magisk module
+        run: |
+          zip -r "$ZIP_NAME" \
+            module.prop \
+            install.sh \
+            uninstall.sh \
+            system/ \
+            common/ \
+            script/ \
+            META-INF/ \
+            -x "*.git*" "*.github*" "README.md" "LICENSE.md" "changelog.md" "update.json"
+          echo "✅ ZIP created: $ZIP_NAME"
 
-      - name: Update update.json # ชื่อขั้นตอน: อัปเดตไฟล์ update.json
-        run: | # กำหนดให้รันคำสั่ง Shell แบบหลายบรรทัด (สำคัญ: เนื้อหาภายใน EOF ต้องไม่เยื้องไปมากกว่านี้)
+      - name: Update update.json
+        run: |
           cat << EOF > update.json
 {
   "version": "${{ env.MODULE_VERSION }}",
@@ -45,32 +45,31 @@ jobs: # กำหนด Job ที่จะรัน
   "changelog": "https://raw.githubusercontent.com/${{ github.repository }}/main/changelog.md"
 }
 EOF
-          echo "✅ update.json created." # แสดงข้อความยืนยันการสร้าง/อัปเดตไฟล์
+          echo "✅ update.json created."
 
-      - name: Commit updated update.json # ชื่อขั้นตอน: Commit ไฟล์ update.json ที่ถูกอัปเดต
-        run: | # กำหนดให้รันคำสั่ง Git
-          git config user.name "github-actions[bot]" # ตั้งค่าชื่อผู้ใช้ Git
-          git config user.email "github-actions[bot]@users.noreply.github.com" # ตั้งค่าอีเมลผู้ใช้ Git
-          git add update.json # เพิ่มไฟล์ update.json เข้าสู่ staging area
-          git diff-index --quiet HEAD || ( # ตรวจสอบว่ามีอะไรเปลี่ยนแปลงในไฟล์ update.json หรือไม่
-            git commit -m "Update update.json for ${{ env.MODULE_VERSION }} [skip ci]" # ถ้ามีการเปลี่ยนแปลง ให้ Commit
-            git push # Push การเปลี่ยนแปลงขึ้น GitHub
+      - name: Commit updated update.json
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add update.json
+          git diff-index --quiet HEAD || (
+            git commit -m "Update update.json for ${{ env.MODULE_VERSION }} [skip ci]"
+            git push
           )
-        env: # กำหนดตัวแปรสภาพแวดล้อมสำหรับขั้นตอนนี้เท่านั้น
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # ใช้ GITHUB_TOKEN ที่ GitHub Actions จัดเตรียมให้ เพื่อให้มีสิทธิ์ในการ Commit/Push
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Create GitHub Release # ชื่อขั้นตอน: สร้าง GitHub Release
-        uses: softprops/action-gh-release@v2 # ใช้ Action 'action-gh-release' เวอร์ชัน 2 เพื่อสร้าง Release
-        with: # กำหนดพารามิเตอร์สำหรับ Action นี้
-          tag_name: ${{ env.MODULE_VERSION }} # กำหนดชื่อ Tag ของ Release
-          name: Release ${{ env.MODULE_VERSION }} # กำหนดชื่อ Release
-          body: | # กำหนดเนื้อหา (Description) ของ Release
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.MODULE_VERSION }}
+          name: Release ${{ env.MODULE_VERSION }}
+          body: |
             🔓 VTEC Unlock ${{ env.MODULE_VERSION }} - Version Code: ${{ env.VERSION_CODE }}
             📄 Changelog: https://raw.githubusercontent.com/${{ github.repository }}/main/changelog.md
-          files: ${{ env.ZIP_NAME }} # แนบไฟล์ Zip ที่สร้างไว้เข้ากับ Release
-        env: # กำหนดตัวแปรสภาพแวดล้อมสำหรับขั้นตอนนี้เท่านั้น
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # ใช้ GITHUB_TOKEN เพื่อให้มีสิทธิ์ในการสร้าง Release
+          files: ${{ env.ZIP_NAME }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Done # ชื่อขั้นตอน: แสดงข้อความเมื่อทำงานเสร็จสมบูรณ์
-        run: echo "✅ Magisk Module Released: ${{ env.MODULE_VERSION }}" # แสดงข้อความยืนยัน
-
+      - name: Done
+        run: echo "✅ Magisk Module Released: ${{ env.MODULE_VERSION }}"

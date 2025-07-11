@@ -38,7 +38,7 @@ jobs: # กำหนด Job ที่จะรัน
       - name: Update update.json # ชื่อขั้นตอน: อัปเดตไฟล์ update.json
         run: | # กำหนดให้รันคำสั่ง Shell แบบหลายบรรทัด (สำคัญ: เนื้อหาภายใน EOF ต้องไม่เยื้องไปมากกว่านี้)
           cat << EOF > update.json
-{ # บรรทัดนี้ (และบรรทัดถัดๆ ไป) ต้องชิดซ้ายสุด หรือเยื้องเท่ากับที่กำหนดโดย "cat << EOF"
+{
   "version": "${{ env.MODULE_VERSION }}",
   "versionCode": "${{ env.VERSION_CODE }}",
   "zipUrl": "https://github.com/${{ github.repository }}/releases/download/${{ env.MODULE_VERSION }}/${{ env.ZIP_NAME }}",

@@ -64,7 +64,9 @@ jobs:
         with:
           tag_name: ${{ env.MODULE_VERSION }}
           name: Release ${{ env.MODULE_VERSION }}
-          body: "🔓 VTEC Unlock ${MODULE_VERSION} - Version Code: ${VERSION_CODE}\nSee changelog: https://raw.githubusercontent.com/${{ github.repository }}/main/changelog.md"
+          body: >
+            🔓 VTEC Unlock ${{ env.MODULE_VERSION }} - Version Code: ${{ env.VERSION_CODE }}  
+            📄 Changelog: https://raw.githubusercontent.com/${{ github.repository }}/main/changelog.md
           files: ${{ env.ZIP_NAME }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

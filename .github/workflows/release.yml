@@ -1,85 +1,65 @@
-name: Build & Release Magisk Module # ชื่อของ Workflow (บรรทัดที่ 1 ต้องเป็นอันนี้)
+name: Build & Release Magisk Module
 
 on:
   push:
     branches:
-      - main # หรือ master หากคุณใช้ branch หลักชื่อ master
-  workflow_dispatch: # อนุญาตให้รัน workflow นี้ได้ด้วยตนเองจากหน้า GitHub
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
-  build: # ชื่อของ Job นี้
-    runs-on: ubuntu-latest # รันบนระบบปฏิบัติการ Ubuntu เวอร์ชันล่าสุด
+  build:
+    runs-on: ubuntu-latest
 
     steps:
-      - name: Set up job # ขั้นตอนเริ่มต้น
-        uses: actions/checkout@v4 # ใช้ action ในการ checkout code จาก repository
-
-      - name: Checkout repository # ตรวจสอบ repository
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set version info # กำหนดข้อมูลเวอร์ชัน (ตัวอย่าง)
+      - name: Set version info
         run: |
-          echo "Setting version info..."
-          # เพิ่มคำสั่งของคุณที่นี่เพื่อกำหนดเวอร์ชัน หากมี
-          # ตัวอย่าง: echo "MODULE_VERSION=1.0.0" >> $GITHUB_ENV
-      - name: Zip Magisk module # บีบอัด Magisk module
+          VERSION="v$(date +%Y.%m.%d.%H%M)"
+          echo "MODULE_VERSION=$VERSION" >> $GITHUB_ENV
+
+      - name: Zip Magisk module
         run: |
-          echo "Zipping Magisk module..."
-          # เพิ่มคำสั่งของคุณที่นี่เพื่อบีบอัด Magisk module
-          # เช่น: zip -r module.zip * -x .git/ .github/
-          # ตรวจสอบให้แน่ใจว่าไฟล์ที่จำเป็นอยู่ในไดเรกทอรีนี้ก่อนทำการ zip
-          # สมมติว่ามีโฟลเดอร์สำหรับ Magisk module อยู่แล้ว
-          # ตัวอย่างคำสั่ง zip:
-          # cd <path_to_your_magisk_module_directory>
-          # zip -r ../MagiskModule.zip . -x .git/ .github/
-          # หรือถ้าทุกอย่างอยู่ใน root ของ repo แล้วและต้องการ zip เฉพาะไฟล์ที่เกี่ยวข้อง
-          # zip -r module.zip module_folder/ system/ common/ post-fs-data.sh service.sh module.prop customize.sh uninstall.sh -x "*.git*" "*.github*"
-          
-          # ตัวอย่างแบบง่ายๆ (ปรับตามโครงสร้างโปรเจกต์ของคุณ)
           mkdir -p build_output
           echo "This is a placeholder for your module content." > build_output/module.txt
           zip -r MagiskModule.zip build_output/
-          echo "Successfully zipped Magisk module."
-      - name: Update update.json # อัปเดตไฟล์ update.json
+
+      - name: Update update.json
         run: |
-          echo "Updating update.json..."
-          # แก้ไขบรรทัดนี้เพื่อสร้าง JSON ตามโครงสร้างที่คุณต้องการ
           cat << EOF > update.json
           {
-            "version": "v4.2.1",
+            "version": "${MODULE_VERSION}",
             "versionCode": "45",
-            "zipUrl": "https://github.com/RealHard23/VTEC_Unlimit/releases/download/v4.2.1/VTEC_Unlimit_v4.2.1.zip",
-            "changelog": "https://raw.githubusercontent.com/RealHard23/VTEC_Unlimit/main/changelog.md"
+            "zipUrl": "https://github.com/${{ github.repository }}/releases/download/${MODULE_VERSION}/MagiskModule.zip",
+            "changelog": "https://raw.githubusercontent.com/${{ github.repository }}/main/changelog.md"
           }
           EOF
-          echo "Successfully updated update.json."
-      - name: Commit updated update.json # Commit การเปลี่ยนแปลงใน update.json และ push กลับไปที่ repo
-        # นี่คือส่วนที่แก้ไขจากปัญหาเดิม
+
+      - name: Commit updated update.json
         run: |
-          git config user.name "github-actions[bot]" # ตั้งค่าผู้ใช้สำหรับ commit
-          git config user.email "github-actions[bot]@users.noreply.github.com" # ตั้งค่าอีเมลสำหรับ commit
-          
-          # เพิ่มไฟล์ update.json เข้าสู่ staging area
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
           git add update.json
-          
-          # ตรวจสอบว่ามีอะไรต้อง commit หรือไม่
-          # ถ้าไม่มีการเปลี่ยนแปลงที่ต้อง commit, git diff-index จะคืนค่า 0 และจะไม่เข้าในวงเล็บ
           git diff-index --quiet HEAD || (
-            # ถ้ามีสิ่งที่ต้อง commit (ไฟล์ update.json มีการเปลี่ยนแปลง)
-            git commit -m "Update update.json [skip ci]" # สร้าง commit พร้อมข้อความ (และ [skip ci] เพื่อไม่ให้รัน workflow ซ้ำ)
-            git push # push commit ขึ้นไปยัง repository
+            git commit -m "Update update.json [skip ci]"
+            git push
           )
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # ใช้ GITHUB_TOKEN ที่ GitHub จัดเตรียมให้สำหรับการ push
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload Release ZIP # อัปโหลดไฟล์ ZIP ไปยัง Release
-        uses: actions/upload-artifact@v4 # ใช้ action ในการอัปโหลด artifact
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
         with:
-          name: MagiskModule
-          path: MagiskModule.zip # ระบุ path ของไฟล์ ZIP ที่ต้องการอัปโหลด
+          tag_name: ${{ env.MODULE_VERSION }}
+          name: Release ${{ env.MODULE_VERSION }}
+          body: "Auto release from GitHub Actions"
+          files: MagiskModule.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Post Checkout repository # ขั้นตอนหลังการ checkout (ทำความสะอาด)
-        run: echo "Post checkout tasks complete." # สามารถเพิ่มคำสั่งทำความสะอาดหรืออื่น ๆ ได้ที่นี่
-
-      - name: Complete job # ขั้นตอนสุดท้ายของ Job
+      - name: Complete job
         run: echo "Build and Release job completed successfully."

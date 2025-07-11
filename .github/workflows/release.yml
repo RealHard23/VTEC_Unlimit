@@ -140,42 +140,10 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: v4.2.1
-          name: Release v4.2.1
-          body: |
-            ## VTEC Unlimit Module v4.2.1
-            
-            **Installation:**
-            1. Download the zip file below
-            2. Open Magisk Manager
-            3. Go to Modules tab
-            4. Tap "Install from storage"
-            5. Select the downloaded zip file
-            6. Reboot your device
-            
-            **Features:**
-            - VTEC unlimit functionality
-            - Systemless modification
-            - Boot service support
-            
-            **Module Info:**
-            - Version: v4.2.1
-            - Version Code: 45
-            
-            **Changelog:**
-            See [changelog.md](https://github.com/${{ github.repository }}/blob/main/changelog.md) for detailed changes.
-            
-            **Auto-generated release from GitHub Actions**
-          files: VTEC_Unlimit_4.2.1.zip
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Complete job
         run: |
           echo "=== Build completed successfully ==="
           echo "Created: VTEC_Unlimit_4.2.1.zip"
           echo "Version: v4.2.1"
           echo "Version Code: 45"
+          ls -la VTEC_Unlimit_4.2.1.zip

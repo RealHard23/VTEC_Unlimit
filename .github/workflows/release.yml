@@ -19,33 +19,55 @@ jobs:
 
       - name: Set version info
         run: |
-          VERSION="v$(date +%Y.%m.%d.%H%M)"
+          VERSION="v4.2.1"
           echo "MODULE_VERSION=$VERSION" >> $GITHUB_ENV
 
-      - name: Zip Magisk module
+      - name: Update module.prop version
         run: |
-          mkdir -p build_output
-          echo "This is a placeholder for your module content." > build_output/module.txt
-          zip -r MagiskModule.zip build_output/
+          # Update version in module.prop
+          sed -i "s/version=.*/version=v4.2.1/" module.prop
+          sed -i "s/versionCode=.*/versionCode=45/" module.prop
+
+      - name: Set executable permissions
+        run: |
+          chmod +x install.sh
+          chmod +x uninstall.sh
+          chmod +x META-INF/com/google/android/update-binary
+          find script/ -name "*.sh" -exec chmod +x {} \;
+          find common/ -name "*.sh" -exec chmod +x {} \;
+          find system/ -name "*" -type f -exec chmod 644 {} \;
+
+      - name: Create Magisk module zip
+        run: |
+          # Create zip with all files from repository
+          zip -r "VTEC_Unlimit_4.2.1.zip" \
+            module.prop \
+            install.sh \
+            uninstall.sh \
+            META-INF/ \
+            system/ \
+            script/ \
+            common/ \
+            -x ".git/*" ".github/*" "*.md" "update.json"
 
       - name: Update update.json
         run: |
           cat << EOF > update.json
           {
-            "version": "${MODULE_VERSION}",
+            "version": "v4.2.1",
             "versionCode": "45",
-            "zipUrl": "https://github.com/${{ github.repository }}/releases/download/${MODULE_VERSION}/MagiskModule.zip",
+            "zipUrl": "https://github.com/${{ github.repository }}/releases/download/v4.2.1/VTEC_Unlimit_4.2.1.zip",
             "changelog": "https://raw.githubusercontent.com/${{ github.repository }}/main/changelog.md"
           }
           EOF
 
-      - name: Commit updated update.json
+      - name: Commit updated files
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add update.json
+          git add update.json module.prop
           git diff-index --quiet HEAD || (
-            git commit -m "Update update.json [skip ci]"
+            git commit -m "Update version to v4.2.1 [skip ci]"
             git push
           )
         env:
@@ -54,12 +76,31 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ env.MODULE_VERSION }}
-          name: Release ${{ env.MODULE_VERSION }}
-          body: "Auto release from GitHub Actions"
-          files: MagiskModule.zip
+          tag_name: v4.2.1
+          name: Release v4.2.1
+          body: |
+            ## VTEC Unlimit Module v4.2.1
+            
+            **Installation:**
+            1. Download the zip file below
+            2. Open Magisk Manager
+            3. Go to Modules tab
+            4. Tap "Install from storage"
+            5. Select the downloaded zip file
+            6. Reboot your device
+            
+            **Features:**
+            - VTEC unlock functionality
+            - Systemless modification
+            - Boot service support
+            
+            **Changelog:**
+            See [changelog.md](https://github.com/${{ github.repository }}/blob/main/changelog.md) for detailed changes.
+            
+            **Auto-generated release from GitHub Actions**
+          files: VTEC_Unlimit_4.2.1.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Complete job
-        run: echo "Build and Release job completed successfully."   
+        run: echo "Build and Release job completed successfully."

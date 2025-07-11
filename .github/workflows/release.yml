@@ -9,13 +9,14 @@ on:
 permissions:
   contents: write
 
+env:
+  MODULE_VERSION: v4.2.1
+  VERSION_CODE: 45
+  ZIP_NAME: VTEC_Unlimit_4.2.1.zip
+
 jobs:
   build:
     runs-on: ubuntu-latest
-
-    env:
-      MODULE_VERSION: v4.2.1
-      ZIP_NAME: VTEC_Unlimit_4.2.1.zip
 
     steps:
       - name: Checkout repository
@@ -23,8 +24,11 @@ jobs:
 
       - name: Zip Magisk module
         run: |
+          # แทนที่โฟลเดอร์ build_output ด้วยโฟลเดอร์จริงของโมดูลคุณ เช่น module/, system/, หรืออื่นๆ
           mkdir -p build_output
-          echo "This is your real module content." > build_output/module.txt
+          echo "Your module content goes here." > build_output/module.txt
+
+          # สร้าง ZIP ชื่อ VTEC_Unlimit_4.2.1.zip
           zip -r $ZIP_NAME build_output/
 
       - name: Update update.json
@@ -32,12 +36,12 @@ jobs:
           cat << EOF > update.json
           {
             "version": "${MODULE_VERSION}",
-            "versionCode": "45",
+            "versionCode": "${VERSION_CODE}",
             "zipUrl": "https://github.com/${{ github.repository }}/releases/download/${MODULE_VERSION}/${ZIP_NAME}",
             "changelog": "https://raw.githubusercontent.com/${{ github.repository }}/main/changelog.md"
           }
           EOF
-          echo "update.json created successfully."
+          echo "✅ update.json created."
 
       - name: Commit updated update.json
         run: |
@@ -56,10 +60,10 @@ jobs:
         with:
           tag_name: ${{ env.MODULE_VERSION }}
           name: Release ${{ env.MODULE_VERSION }}
-          body: "Changelog: https://raw.githubusercontent.com/${{ github.repository }}/main/changelog.md"
+          body: "Auto release for version ${{ env.MODULE_VERSION }}\n\nSee changelog: https://raw.githubusercontent.com/${{ github.repository }}/main/changelog.md"
           files: ${{ env.ZIP_NAME }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Complete job
+      - name: Complete
         run: echo "✅ Build & Release completed for $MODULE_VERSION"

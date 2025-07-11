@@ -74,5 +74,5 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Done
-        run: echo "✅ Magisk Module Released: $MODULE_VERSION"
+        run: echo "Magisk Module Released: $MODULE_VERSION"
 

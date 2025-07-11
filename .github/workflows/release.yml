@@ -22,7 +22,6 @@ jobs:
           echo "Setting version info..."
           # เพิ่มคำสั่งของคุณที่นี่เพื่อกำหนดเวอร์ชัน หากมี
           # ตัวอย่าง: echo "MODULE_VERSION=1.0.0" >> $GITHUB_ENV
-
       - name: Zip Magisk module # บีบอัด Magisk module
         run: |
           echo "Zipping Magisk module..."
@@ -41,7 +40,6 @@ jobs:
           echo "This is a placeholder for your module content." > build_output/module.txt
           zip -r MagiskModule.zip build_output/
           echo "Successfully zipped Magisk module."
-
       - name: Update update.json # อัปเดตไฟล์ update.json
         run: |
           echo "Updating update.json..."
@@ -50,12 +48,11 @@ jobs:
           {
             "version": "v4.2.1",
             "versionCode": "45",
-            "zipUrl": "https://github.com/RealHard23/VTEC_Unlimit/releases/download/v4.2.1/VTEC_Unlimit_v4.2.1zip",
+            "zipUrl": "https://github.com/RealHard23/VTEC_Unlimit/releases/download/v4.2.1/VTEC_Unlimit_v4.2.1.zip",
             "changelog": "https://raw.githubusercontent.com/RealHard23/VTEC_Unlimit/main/changelog.md"
           }
           EOF
           echo "Successfully updated update.json."
-
       - name: Commit updated update.json # Commit การเปลี่ยนแปลงใน update.json และ push กลับไปที่ repo
         # นี่คือส่วนที่แก้ไขจากปัญหาเดิม
         run: |
@@ -78,10 +75,10 @@ jobs:
       - name: Upload Release ZIP # อัปโหลดไฟล์ ZIP ไปยัง Release
         uses: actions/upload-artifact@v4 # ใช้ action ในการอัปโหลด artifact
         with:
-          name: VTEC_Unlimit
-          path: VTEC_Unlimit_4.2.1.zip # ระบุ path ของไฟล์ ZIP ที่ต้องการอัปโหลด
+          name: MagiskModule
+          path: MagiskModule.zip # ระบุ path ของไฟล์ ZIP ที่ต้องการอัปโหลด
 
-- name: Post Checkout repository # ขั้นตอนหลังการ checkout (ทำความสะอาด)
+      - name: Post Checkout repository # ขั้นตอนหลังการ checkout (ทำความสะอาด)
         run: echo "Post checkout tasks complete." # สามารถเพิ่มคำสั่งทำความสะอาดหรืออื่น ๆ ได้ที่นี่
 
       - name: Complete job # ขั้นตอนสุดท้ายของ Job

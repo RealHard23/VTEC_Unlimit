@@ -1,8 +1,17 @@
-v4.2
+v4.2.1
 
-# Force Hardware Composer (HWC) for better performance
-# Reduce rendering latency
-# Turn off GL backpressure for smoothness
-# Improve app launch speed and memory management
+สั่งให้ Android ใช้โหมดประสิทธิภาพสูง (performance mode) ชั่วคราวก่อนที่หน้าจอจะดับหรืออุปกรณ์จะเข้าสู่โหมดประหยัดพลังงาน เพื่อให้การทำงานยังคงเร็วและไม่สะดุด เช่น ขณะโหลดข้อมูลเบื้องหลัง การเล่นวิดีโอ หรือการรันแอปเบื้องหลังที่สำคัญ
+
+
+---
+
+หมายเหตุ:
+
+บางเครื่องหรือรอมอาจไม่สนับสนุนค่าตัวนี้อย่างเป็นทางการ ขึ้นอยู่กับ vendor หรือ custom ROM
+
+การตั้งค่าแบบนี้อาจทำให้ กินแบตเพิ่มขึ้นเล็กน้อย เพราะระบบไม่ลด performance ก่อนพักหน้าจอ
+
+
+หากคุณใช้งานเพื่อปรับแต่ง custom ROM หรือ performance tuning ค่านี้อาจมีผลในกรณีเฉพาะ เช่น เล่นเกม ดูวิดีโอ หรือสั่งงานอัตโนมัติระหว่าง idle.
 
 This module removes the thermal control limitation, which may cause your phone to overheat. Use at your own risk.

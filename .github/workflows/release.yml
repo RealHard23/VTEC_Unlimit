@@ -24,12 +24,16 @@ jobs:
 
       - name: Zip Magisk module
         run: |
-          # แทนที่โฟลเดอร์ build_output ด้วยโฟลเดอร์จริงของโมดูลคุณ เช่น module/, system/, หรืออื่นๆ
-          mkdir -p build_output
-          echo "Your module content goes here." > build_output/module.txt
-
-          # สร้าง ZIP ชื่อ VTEC_Unlimit_4.2.1.zip
-          zip -r $ZIP_NAME build_output/
+          zip -r $ZIP_NAME \
+            module.prop \
+            install.sh \
+            uninstall.sh \
+            system/ \
+            common/ \
+            script/ \
+            META-INF/ \
+            -x "*.git*" "*.github*" "README.md" "LICENSE.md" "changelog.md" "update.json"
+          echo "✅ ZIP created: $ZIP_NAME"
 
       - name: Update update.json
         run: |
@@ -60,10 +64,13 @@ jobs:
         with:
           tag_name: ${{ env.MODULE_VERSION }}
           name: Release ${{ env.MODULE_VERSION }}
-          body: "Auto release for version ${{ env.MODULE_VERSION }}\n\nSee changelog: https://raw.githubusercontent.com/${{ github.repository }}/main/changelog.md"
+          body: |
+            🔓 **VTEC Unlock ${MODULE_VERSION}**
+            - Version Code: ${VERSION_CODE}
+            - [Changelog](https://raw.githubusercontent.com/${{ github.repository }}/main/changelog.md)
           files: ${{ env.ZIP_NAME }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Complete
-        run: echo "✅ Build & Release completed for $MODULE_VERSION"
+      - name: Done
+        run: echo "✅ Magisk Module Released: $MODULE_VERSION"

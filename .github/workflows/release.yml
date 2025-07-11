@@ -22,33 +22,90 @@ jobs:
           VERSION="v4.2.1"
           echo "MODULE_VERSION=$VERSION" >> $GITHUB_ENV
 
+      - name: Check and list files
+        run: |
+          echo "=== Repository structure ==="
+          ls -la
+          echo "=== Checking module.prop ==="
+          if [ -f "module.prop" ]; then
+            echo "module.prop exists"
+            cat module.prop
+          else
+            echo "module.prop not found!"
+            exit 1
+          fi
+
       - name: Update module.prop version
         run: |
-          # Update version in module.prop
-          sed -i "s/version=.*/version=v4.2.1/" module.prop
-          sed -i "s/versionCode=.*/versionCode=45/" module.prop
+          # Backup original module.prop
+          cp module.prop module.prop.bak
+          
+          # Update version in module.prop - handle different formats
+          if grep -q "^version=" module.prop; then
+            sed -i 's/^version=.*/version=v4.2.1/' module.prop
+          else
+            echo "version=v4.2.1" >> module.prop
+          fi
+          
+          if grep -q "^versionCode=" module.prop; then
+            sed -i 's/^versionCode=.*/versionCode=45/' module.prop
+          else
+            echo "versionCode=45" >> module.prop
+          fi
+          
+          echo "=== Updated module.prop ==="
+          cat module.prop
 
       - name: Set executable permissions
         run: |
-          chmod +x install.sh
-          chmod +x uninstall.sh
-          chmod +x META-INF/com/google/android/update-binary
-          find script/ -name "*.sh" -exec chmod +x {} \;
-          find common/ -name "*.sh" -exec chmod +x {} \;
-          find system/ -name "*" -type f -exec chmod 644 {} \;
+          # Set permissions only if files exist
+          [ -f "install.sh" ] && chmod +x install.sh || echo "install.sh not found"
+          [ -f "uninstall.sh" ] && chmod +x uninstall.sh || echo "uninstall.sh not found"
+          
+          # Set permissions for META-INF
+          if [ -d "META-INF" ]; then
+            find META-INF -type f -name "update-binary" -exec chmod +x {} \;
+            find META-INF -type f -name "*.sh" -exec chmod +x {} \;
+          fi
+          
+          # Set permissions for script directory
+          if [ -d "script" ]; then
+            find script -type f -name "*.sh" -exec chmod +x {} \;
+          fi
+          
+          # Set permissions for common directory
+          if [ -d "common" ]; then
+            find common -type f -name "*.sh" -exec chmod +x {} \;
+          fi
+          
+          # Set permissions for system directory
+          if [ -d "system" ]; then
+            find system -type f -exec chmod 644 {} \;
+          fi
 
       - name: Create Magisk module zip
         run: |
-          # Create zip with all files from repository
-          zip -r "VTEC_Unlimit_4.2.1.zip" \
-            module.prop \
-            install.sh \
-            uninstall.sh \
-            META-INF/ \
-            system/ \
-            script/ \
-            common/ \
-            -x ".git/*" ".github/*" "*.md" "update.json"
+          echo "=== Creating zip file ==="
+          
+          # Create zip with only existing files
+          ZIP_FILES=""
+          
+          [ -f "module.prop" ] && ZIP_FILES="$ZIP_FILES module.prop"
+          [ -f "install.sh" ] && ZIP_FILES="$ZIP_FILES install.sh"
+          [ -f "uninstall.sh" ] && ZIP_FILES="$ZIP_FILES uninstall.sh"
+          [ -d "META-INF" ] && ZIP_FILES="$ZIP_FILES META-INF"
+          [ -d "system" ] && ZIP_FILES="$ZIP_FILES system"
+          [ -d "script" ] && ZIP_FILES="$ZIP_FILES script"
+          [ -d "common" ] && ZIP_FILES="$ZIP_FILES common"
+          
+          if [ -n "$ZIP_FILES" ]; then
+            zip -r "VTEC_Unlimit_4.2.1.zip" $ZIP_FILES
+            echo "=== Zip file created successfully ==="
+            ls -la VTEC_Unlimit_4.2.1.zip
+          else
+            echo "No files to zip!"
+            exit 1
+          fi
 
       - name: Update update.json
         run: |
@@ -60,16 +117,26 @@ jobs:
             "changelog": "https://raw.githubusercontent.com/${{ github.repository }}/main/changelog.md"
           }
           EOF
+          
+          echo "=== update.json created ==="
+          cat update.json
 
       - name: Commit updated files
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add update.json module.prop
-          git diff-index --quiet HEAD || (
+          
+          # Add files if they exist
+          git add update.json
+          [ -f "module.prop" ] && git add module.prop
+          
+          # Check if there are changes to commit
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
             git commit -m "Update version to v4.2.1 [skip ci]"
             git push
-          )
+          fi
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -90,9 +157,13 @@ jobs:
             6. Reboot your device
             
             **Features:**
-            - VTEC unlock functionality
+            - VTEC unlimit functionality
             - Systemless modification
             - Boot service support
+            
+            **Module Info:**
+            - Version: v4.2.1
+            - Version Code: 45
             
             **Changelog:**
             See [changelog.md](https://github.com/${{ github.repository }}/blob/main/changelog.md) for detailed changes.
@@ -103,4 +174,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Complete job
-        run: echo "Build and Release job completed successfully."
+        run: |
+          echo "=== Build completed successfully ==="
+          echo "Created: VTEC_Unlimit_4.2.1.zip"
+          echo "Version: v4.2.1"
+          echo "Version Code: 45"

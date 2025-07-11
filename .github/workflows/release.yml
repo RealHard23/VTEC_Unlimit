@@ -38,13 +38,13 @@ jobs:
       - name: Update update.json
         run: |
           cat << EOF > update.json
-          {
-            "version": "${{ env.MODULE_VERSION }}",
-            "versionCode": "${{ env.VERSION_CODE }}",
-            "zipUrl": "https://github.com/${{ github.repository }}/releases/download/${{ env.MODULE_VERSION }}/${{ env.ZIP_NAME }}",
-            "changelog": "https://raw.githubusercontent.com/${{ github.repository }}/main/changelog.md"
-          }
-          EOF
+{
+  "version": "${{ env.MODULE_VERSION }}",
+  "versionCode": "${{ env.VERSION_CODE }}",
+  "zipUrl": "https://github.com/${{ github.repository }}/releases/download/${{ env.MODULE_VERSION }}/${{ env.ZIP_NAME }}",
+  "changelog": "https://raw.githubusercontent.com/${{ github.repository }}/main/changelog.md"
+}
+EOF
           echo "✅ update.json created."
 
       - name: Commit updated update.json
@@ -73,3 +73,4 @@ jobs:
 
       - name: Done
         run: echo "✅ Magisk Module Released: ${{ env.MODULE_VERSION }}"
+

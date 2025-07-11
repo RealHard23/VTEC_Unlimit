@@ -64,7 +64,7 @@ jobs:
         with:
           tag_name: ${{ env.MODULE_VERSION }}
           name: Release ${{ env.MODULE_VERSION }}
-          # แก้ไขบรรทัด body เพื่อให้แน่ใจว่าไม่มีปัญหาการเว้นวรรคหรือการจัดรูปแบบ
+          # ตรวจสอบให้แน่ใจว่าการเยื้องของ body และข้อความด้านล่างถูกต้อง
           body: |
             🔓 VTEC Unlock ${{ env.MODULE_VERSION }} - Version Code: ${{ env.VERSION_CODE }}
             📄 Changelog: https://raw.githubusercontent.com/${{ github.repository }}/main/changelog.md

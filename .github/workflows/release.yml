@@ -1,124 +1,88 @@
-name: Build & Release Magisk Module
+name: Build & Release Magisk Module # ชื่อของ Workflow (บรรทัดที่ 1 ต้องเป็นอันนี้)
 
 on:
   push:
     branches:
       - main # หรือ master หากคุณใช้ branch หลักชื่อ master
-    tags: # เพิ่มเงื่อนไขนี้เพื่อทริกเกอร์ workflow เมื่อมีการ push tag (สำหรับสร้าง Release)
-      - 'v*' # เช่น v1.0, v1.0.1, v2.0
   workflow_dispatch: # อนุญาตให้รัน workflow นี้ได้ด้วยตนเองจากหน้า GitHub
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
+  build: # ชื่อของ Job นี้
+    runs-on: ubuntu-latest # รันบนระบบปฏิบัติการ Ubuntu เวอร์ชันล่าสุด
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0 # ดึงประวัติทั้งหมด เพื่อให้ git tag ทำงานได้
+      - name: Set up job # ขั้นตอนเริ่มต้น
+        uses: actions/checkout@v4 # ใช้ action ในการ checkout code จาก repository
 
-      - name: Get current version from module.prop # อ่านเวอร์ชันจาก module.prop
-        id: get_version
+      - name: Checkout repository # ตรวจสอบ repository
+        uses: actions/checkout@v4
+
+      - name: Set version info # กำหนดข้อมูลเวอร์ชัน (ตัวอย่าง)
         run: |
-          # อ่าน VERSION และ VERSION_CODE จาก module.prop
-          # สมมติว่า module.prop อยู่ที่ root ของ repository
-          MODULE_VERSION=$(grep "version=" module.prop | cut -d'=' -f2 | xargs)
-          MODULE_VERSION_CODE=$(grep "versionCode=" module.prop | cut -d'=' -f2 | xargs)
-          
-          echo "Current Module Version: $MODULE_VERSION"
-          echo "Current Module Version Code: $MODULE_VERSION_CODE"
-          
-          echo "MODULE_VERSION=$MODULE_VERSION" >> $GITHUB_ENV
-          echo "MODULE_VERSION_CODE=$MODULE_VERSION_CODE" >> $GITHUB_ENV
-          
-          # ตรวจสอบว่า workflow ถูกทริกเกอร์ด้วย tag หรือไม่
-          # ถ้ามี tag ให้ใช้ tag เป็นชื่อ release version
-          if [[ "${{ github.ref_type }}" == "tag" ]]; then
-            RELEASE_TAG="${{ github.ref_name }}"
-            echo "RELEASE_VERSION=$RELEASE_TAG" >> $GITHUB_ENV
-            echo "Detected tag: $RELEASE_TAG"
-          else
-            # ถ้าไม่มี tag (เช่น push บน main หรือ manual dispatch) ให้ใช้เวอร์ชันจาก module.prop
-            # คุณอาจจะต้องการใช้ format เช่น "v" + MODULE_VERSION สำหรับ tag ในอนาคต
-            # หรืออาจจะข้ามการสร้าง Release ถ้าไม่ได้ push tag
-            echo "RELEASE_VERSION=v$MODULE_VERSION-$(date +%Y%m%d%H%M%S)" >> $GITHUB_ENV # เพิ่ม timestamp หากไม่มี tag
-            echo "No tag detected. Using module.prop version with timestamp."
-          fi
+          echo "Setting version info..."
+          # เพิ่มคำสั่งของคุณที่นี่เพื่อกำหนดเวอร์ชัน หากมี
+          # ตัวอย่าง: echo "MODULE_VERSION=1.0.0" >> $GITHUB_ENV
 
       - name: Zip Magisk module # บีบอัด Magisk module
         run: |
           echo "Zipping Magisk module..."
-          # คำสั่ง zip ที่ถูกต้องสำหรับ Magisk Module
-          # ควรบีบอัดไฟล์และโฟลเดอร์ทั้งหมดที่จำเป็นสำหรับโมดูลไปยัง root ของ zip
-          # สมมติว่าไฟล์ module.prop, customize.sh, system/, common/, etc. อยู่ที่ root ของ repository
-          # และคุณต้องการรวมไฟล์เหล่านี้ทั้งหมดใน zip
-          # (ปรับคำสั่งนี้ตามโครงสร้างไฟล์จริงของ Magisk Module ใน repo ของคุณ)
-          zip -r "VTEC_Unlimit_${{ env.RELEASE_VERSION }}.zip" . -x ".git/*" ".github/*" "*.DS_Store" "LICENSE" "*.md" # ไม่รวมไฟล์ที่ไม่จำเป็น
+          # เพิ่มคำสั่งของคุณที่นี่เพื่อบีบอัด Magisk module
+          # เช่น: zip -r module.zip * -x .git/ .github/
+          # ตรวจสอบให้แน่ใจว่าไฟล์ที่จำเป็นอยู่ในไดเรกทอรีนี้ก่อนทำการ zip
+          # สมมติว่ามีโฟลเดอร์สำหรับ Magisk module อยู่แล้ว
+          # ตัวอย่างคำสั่ง zip:
+          # cd <path_to_your_magisk_module_directory>
+          # zip -r ../MagiskModule.zip . -x .git/ .github/
+          # หรือถ้าทุกอย่างอยู่ใน root ของ repo แล้วและต้องการ zip เฉพาะไฟล์ที่เกี่ยวข้อง
+          # zip -r module.zip module_folder/ system/ common/ post-fs-data.sh service.sh module.prop customize.sh uninstall.sh -x "*.git*" "*.github*"
+          
+          # ตัวอย่างแบบง่ายๆ (ปรับตามโครงสร้างโปรเจกต์ของคุณ)
+          mkdir -p build_output
+          echo "This is a placeholder for your module content." > build_output/module.txt
+          zip -r MagiskModule.zip build_output/
           echo "Successfully zipped Magisk module."
 
-      - name: Create Release # สร้าง GitHub Release (สำคัญ!)
-        id: create_release
-        uses: softprops/action-gh-release@v2 # ใช้ Action สำหรับสร้าง GitHub Release
-        if: startsWith(github.ref, 'refs/tags/') # รันขั้นตอนนี้เฉพาะเมื่อมีการ push tag เท่านั้น
-        with:
-          tag_name: ${{ github.ref_name }} # ใช้ชื่อ tag เป็นชื่อ Release
-          name: VTEC_Unlimit ${{ github.ref_name }} # ชื่อที่แสดงบน Release
-          body: |
-            # Release Notes for VTEC_Unlimit ${{ github.ref_name }}
-            
-            Please refer to the changelog for details:
-            https://raw.githubusercontent.com/RealHard23/VTEC_Unlimit/main/changelog.md
-          draft: false # กำหนดเป็น true หากต้องการร่าง Release ก่อน
-          prerelease: false # กำหนดเป็น true หากเป็นเวอร์ชัน Pre-release
-          files: VTEC_Unlimit_${{ env.RELEASE_VERSION }}.zip # อัปโหลดไฟล์ MagiskModule.zip ไปยัง Release
-
       - name: Update update.json # อัปเดตไฟล์ update.json
-        if: always() # ให้รันขั้นตอนนี้เสมอ ไม่ว่าจะมีการสร้าง Release หรือไม่
         run: |
           echo "Updating update.json..."
-          # กำหนด URL ของ ZIP ให้ถูกต้อง
-          # ถ้ามีการสร้าง Release (จาก tag), ใช้ URL ของ Release นั้น
-          if [[ "${{ github.ref_type }}" == "tag" ]]; then
-            RELEASE_ZIP_URL="https://github.com/RealHard23/VTEC_Unlimit/releases/download/${{ env.RELEASE_VERSION }}/VTEC_Unlimit_${{ env.RELEASE_VERSION }}.zip"
-          else
-            # ถ้าไม่มีการสร้าง Release (เช่น push บน main หรือ manual dispatch ที่ไม่มี tag),
-            # ให้ใช้ URL ของ artifact หรือแจ้งเตือนว่าไม่มี Release URL
-            # หรือจะข้ามการอัปเดต update.json ในกรณีนี้ไปเลยก็ได้ ขึ้นอยู่กับความต้องการ
-            echo "Warning: No GitHub Release created. update.json might point to an incorrect URL or needs manual update."
-            # สำหรับตอนนี้ เราจะยังคงใช้ Placeholder หรือจะทำอะไรบางอย่างหากไม่มี Release
-            RELEASE_ZIP_URL="https://github.com/RealHard23/VTEC_Unlimit/raw/main/VTEC_Unlimit_${{ env.RELEASE_VERSION }}.zip" # URL สำหรับไฟล์บน main branch (ไม่แนะนำสำหรับ Release)
-          fi
-          
+          # แก้ไขบรรทัดนี้เพื่อสร้าง JSON ตามโครงสร้างที่คุณต้องการ
           cat << EOF > update.json
           {
-            "version": "${{ env.MODULE_VERSION }}",
-            "versionCode": "${{ env.MODULE_VERSION_CODE }}",
-            "zipUrl": "$RELEASE_ZIP_URL",
+            "version": "v4.2.1",
+            "versionCode": "45",
+            "zipUrl": "https://github.com/RealHard23/VTEC_Unlimit/releases/download/v4.2.1/VTEC_Unlimit_v4.2.1zip",
             "changelog": "https://raw.githubusercontent.com/RealHard23/VTEC_Unlimit/main/changelog.md"
           }
           EOF
           echo "Successfully updated update.json."
 
       - name: Commit updated update.json # Commit การเปลี่ยนแปลงใน update.json และ push กลับไปที่ repo
-        # ตรวจสอบว่ามีการเปลี่ยนแปลงใน update.json ก่อน commit
+        # นี่คือส่วนที่แก้ไขจากปัญหาเดิม
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]" # ตั้งค่าผู้ใช้สำหรับ commit
+          git config user.email "github-actions[bot]@users.noreply.github.com" # ตั้งค่าอีเมลสำหรับ commit
           
+          # เพิ่มไฟล์ update.json เข้าสู่ staging area
           git add update.json
           
-          # ตรวจสอบว่ามีอะไรต้อง commit หรือไม่ (เช่น update.json มีการเปลี่ยนแปลง)
-          if ! git diff-index --quiet HEAD -- update.json; then
-            echo "Committing update.json..."
-            git commit -m "Update update.json for ${{ env.MODULE_VERSION }} [skip ci]"
-            git push
-          else
-            echo "No changes in update.json. Skipping commit."
-          fi
+          # ตรวจสอบว่ามีอะไรต้อง commit หรือไม่
+          # ถ้าไม่มีการเปลี่ยนแปลงที่ต้อง commit, git diff-index จะคืนค่า 0 และจะไม่เข้าในวงเล็บ
+          git diff-index --quiet HEAD || (
+            # ถ้ามีสิ่งที่ต้อง commit (ไฟล์ update.json มีการเปลี่ยนแปลง)
+            git commit -m "Update update.json [skip ci]" # สร้าง commit พร้อมข้อความ (และ [skip ci] เพื่อไม่ให้รัน workflow ซ้ำ)
+            git push # push commit ขึ้นไปยัง repository
+          )
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # ใช้ GITHUB_TOKEN ที่ GitHub จัดเตรียมให้สำหรับการ push
 
-      - name: Complete job
+      - name: Upload Release ZIP # อัปโหลดไฟล์ ZIP ไปยัง Release
+        uses: actions/upload-artifact@v4 # ใช้ action ในการอัปโหลด artifact
+        with:
+          name: VTEC_Unlimit
+          path: VTEC_Unlimit_4.2.1.zip # ระบุ path ของไฟล์ ZIP ที่ต้องการอัปโหลด
+
+- name: Post Checkout repository # ขั้นตอนหลังการ checkout (ทำความสะอาด)
+        run: echo "Post checkout tasks complete." # สามารถเพิ่มคำสั่งทำความสะอาดหรืออื่น ๆ ได้ที่นี่
+
+      - name: Complete job # ขั้นตอนสุดท้ายของ Job
         run: echo "Build and Release job completed successfully."
-

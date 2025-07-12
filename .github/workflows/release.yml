@@ -29,14 +29,13 @@ jobs:
             console.log('Latest release:', release.tag_name);
             console.log('Release assets:', release.assets.map(a => a.name));
             
-            // Find zip file in assets
+            // Find zip file in assets (any .zip file)
             const zipAsset = release.assets.find(asset => 
-              asset.name.endsWith('.zip') && 
-              asset.name.includes('VTEC_Unlimit')
+              asset.name.endsWith('.zip')
             );
             
             if (!zipAsset) {
-              throw new Error('No VTEC_Unlimit zip file found in release assets');
+              throw new Error('No zip file found in release assets');
             }
             
             core.setOutput('version', release.tag_name);

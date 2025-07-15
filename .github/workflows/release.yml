@@ -1,56 +1,84 @@
-name: Build & Release Magisk Module
+name: Update Module Info from GitHub Release
 
 on:
-  push:
-    branches:
-      - main
-  workflow_dispatch:
+  release:
+    types: [published] # This workflow runs when a new release is published
 
 permissions:
-  contents: write
+  contents: write # Required to commit files back to the repository
 
 jobs:
-  build:
+  update_info:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set version info
+      - name: Get Release Info
+        id: get_release # Assign an ID to this step to access its outputs
         run: |
-          VERSION="v4.3"
-          VERSION_CODE="46"
-          echo "MODULE_VERSION=$VERSION" >> $GITHUB_ENV
-          echo "MODULE_VERSION_CODE=$VERSION_CODE" >> $GITHUB_ENV
+          # The GitHub event payload contains release information
+          # We need to parse it to get the version and asset URL
+          RELEASE_TAG="${{ github.event.release.tag_name }}"
+          RELEASE_ZIP_URL=""
+          
+          # Find the .zip asset in the release assets
+          # Assuming the module zip file contains "VTEC_Unlimit" in its name
+          for asset in $(echo "${{ github.event.release.assets | toJSON }}" | jq -r '.[].browser_download_url'); do
+            if [[ "$asset" == *"/VTEC_Unlimit_"*".zip" ]]; then
+              RELEASE_ZIP_URL="$asset"
+              break
+            fi
+          done
 
-      - name: Check and list files
-        run: |
-          echo "=== Repository structure ==="
-          ls -la
-          echo "=== Checking module.prop ==="
-          if [ -f "module.prop" ]; then
-            echo "module.prop exists"
-            cat module.prop
-          else
-            echo "module.prop not found!"
+          if [ -z "$RELEASE_TAG" ]; then
+            echo "Error: Release tag not found!"
             exit 1
           fi
 
-      - name: Update module.prop version
+          if [ -z "$RELEASE_ZIP_URL" ]; then
+            echo "Error: Magisk module .zip asset (containing 'VTEC_Unlimit_') not found in the release assets!"
+            exit 1
+          fi
+
+          # Extract version and versionCode from the tag name
+          # Assuming tag_name is like v4.3 or 4.3 or V4.3
+          MODULE_VERSION=$(echo "$RELEASE_TAG" | sed 's/^v//I') # Remove 'v' prefix if exists, case-insensitive
+          
+          # Try to get versionCode. This is a bit tricky if not in tag.
+          # For simplicity, let's assume versionCode is part of the tag or hardcode.
+          # A better way might be to add it to release body or always use the old one from module.prop
+          # For now, let's try to get a numeric part from the end of the tag if possible, or use a placeholder.
+          MODULE_VERSION_CODE=$(echo "$RELEASE_VERSION" | sed 's/[^0-9]//g') # Extract only numbers
+          if [ -z "$MODULE_VERSION_CODE" ]; then
+            MODULE_VERSION_CODE="0" # Fallback if no numbers found
+          fi
+
+          # Output to be used by subsequent steps
+          echo "Detected Module Version: $MODULE_VERSION"
+          echo "Detected Module Version Code: $MODULE_VERSION_CODE"
+          echo "Detected Zip URL: $RELEASE_ZIP_URL"
+
+          echo "MODULE_VERSION=$MODULE_VERSION" >> $GITHUB_ENV
+          echo "MODULE_VERSION_CODE=$MODULE_VERSION_CODE" >> $GITHUB_ENV
+          echo "MODULE_ZIP_URL=$RELEASE_ZIP_URL" >> $GITHUB_ENV
+
+      - name: Update module.prop
         run: |
+          echo "=== Updating module.prop ==="
           # Backup original module.prop
           cp module.prop module.prop.bak
           
-          # Update version in module.prop - handle different formats
+          # Update version in module.prop
           if grep -q "^version=" module.prop; then
-            sed -i 's/^version=.*/version=${{ env.MODULE_VERSION }}/' module.prop
+            sed -i "s|^version=.*|version=${{ env.MODULE_VERSION }}|" module.prop
           else
             echo "version=${{ env.MODULE_VERSION }}" >> module.prop
           fi
           
           if grep -q "^versionCode=" module.prop; then
-            sed -i 's/^versionCode=.*/versionCode=${{ env.MODULE_VERSION_CODE }}/' module.prop
+            sed -i "s|^versionCode=.*|versionCode=${{ env.MODULE_VERSION_CODE }}|" module.prop
           else
             echo "versionCode=${{ env.MODULE_VERSION_CODE }}" >> module.prop
           fi
@@ -58,67 +86,14 @@ jobs:
           echo "=== Updated module.prop ==="
           cat module.prop
 
-      - name: Set executable permissions
-        run: |
-          # Set permissions only if files exist
-          [ -f "install.sh" ] && chmod +x install.sh || echo "install.sh not found"
-          [ -f "uninstall.sh" ] && chmod +x uninstall.sh || echo "uninstall.sh not found"
-          
-          # Set permissions for META-INF
-          if [ -d "META-INF" ]; then
-            find META-INF -type f -name "update-binary" -exec chmod +x {} \;
-            find META-INF -type f -name "*.sh" -exec chmod +x {} \;
-          fi
-          
-          # Set permissions for script directory
-          if [ -d "script" ]; then
-            find script -type f -name "*.sh" -exec chmod +x {} \;
-          fi
-          
-          # Set permissions for common directory
-          if [ -d "common" ]; then
-            find common -type f -name "*.sh" -exec chmod +x {} \;
-          fi
-          
-          # Set permissions for system directory
-          if [ -d "system" ]; then
-            find system -type f -exec chmod 644 {} \;
-          fi
-
-      - name: Create Magisk module zip
-        run: |
-          echo "=== Creating zip file ==="
-          
-          # Create zip with only existing files
-          ZIP_FILES=""
-          
-          [ -f "module.prop" ] && ZIP_FILES="$ZIP_FILES module.prop"
-          [ -f "install.sh" ] && ZIP_FILES="$ZIP_FILES install.sh"
-          [ -f "uninstall.sh" ] && ZIP_FILES="$ZIP_FILES uninstall.sh"
-          [ -d "META-INF" ] && ZIP_FILES="$ZIP_FILES META-INF"
-          [ -d "system" ] && ZIP_FILES="$ZIP_FILES system"
-          [ -d "script" ] && ZIP_FILES="$ZIP_FILES script"
-          [ -d "common" ] && ZIP_FILES="$ZIP_FILES common"
-          
-          # Add changelog.md if it exists
-          [ -f "changelog.md" ] && ZIP_FILES="$ZIP_FILES changelog.md"
-          
-          if [ -n "$ZIP_FILES" ]; then
-            zip -r "VTEC_Unlimit_${{ env.MODULE_VERSION }}.zip" $ZIP_FILES
-            echo "=== Zip file created successfully ==="
-            ls -la VTEC_Unlimit_${{ env.MODULE_VERSION }}.zip
-          else
-            echo "No files to zip!"
-            exit 1
-          fi
-
       - name: Update update.json
         run: |
+          echo "=== Creating/Updating update.json ==="
           cat << EOF > update.json
           {
             "version": "${{ env.MODULE_VERSION }}",
             "versionCode": "${{ env.MODULE_VERSION_CODE }}",
-            "zipUrl": "https://github.com/${{ github.repository }}/releases/download/${{ env.MODULE_VERSION }}/VTEC_Unlimit_${{ env.MODULE_VERSION }}.zip",
+            "zipUrl": "${{ env.MODULE_ZIP_URL }}",
             "changelog": "https://raw.githubusercontent.com/${{ github.repository }}/main/changelog.md"
           }
           EOF
@@ -131,25 +106,23 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           
-          # Add files if they exist
-          git add update.json
-          [ -f "module.prop" ] && git add module.prop
+          git add module.prop update.json
           
-          # Check if there are changes to commit
           if git diff --staged --quiet; then
-            echo "No changes to commit"
+            echo "No changes to commit for module.prop or update.json."
           else
-            git commit -m "Update version to ${{ env.MODULE_VERSION }} [skip ci]"
+            git commit -m "✨ Sync: Update module.prop and update.json from Release ${{ env.MODULE_VERSION }} [skip ci]"
             git push
+            echo "Committed module.prop and update.json changes."
           fi
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # Required for pushing changes
 
       - name: Complete job
         run: |
-          echo "=== Build completed successfully ==="
-          echo "Created: VTEC_Unlimit_${{ env.MODULE_VERSION }}.zip"
+          echo "=== Update from Release completed successfully ==="
+          echo "Module Info Synced:"
           echo "Version: ${{ env.MODULE_VERSION }}"
           echo "Version Code: ${{ env.MODULE_VERSION_CODE }}"
-          ls -la VTEC_Unlimit_${{ env.MODULE_VERSION }}.zip
+          echo "Zip URL: ${{ env.MODULE_ZIP_URL }}"
 

@@ -3,22 +3,22 @@ name: Update Repository from Release
 on:
   release:
     types: [published]
-  workflow_dispatch:
+  workflow_dispatch: # Allows manual trigger
 
 permissions:
-  contents: write
+  contents: write # Grant permission to write to the repository
 
 jobs:
   update:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest # Run on a clean Ubuntu environment
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v4 # Checkout your repository code
 
       - name: Get latest release info
-        id: release
-        uses: actions/github-script@v7
+        id: release # ID for this step to reference its outputs
+        uses: actions/github-script@v7 # Use github-script to interact with GitHub API
         with:
           script: |
             const { data: release } = await github.rest.repos.getLatestRelease({
@@ -26,256 +26,269 @@ jobs:
               repo: context.repo.repo
             });
             
-            console.log('Latest release:', release.tag_name);
-            console.log('Release assets:', release.assets.map(a => a.name));
+            console.log('Latest release tag:', release.tag_name);
+            console.log('Release assets found:', release.assets.map(a => a.name));
             
-            // Find zip file in assets (any .zip file)
+            // Find the first .zip file in the release assets
             const zipAsset = release.assets.find(asset => 
               asset.name.endsWith('.zip')
             );
             
             if (!zipAsset) {
-              throw new Error('No zip file found in release assets');
+              core.setFailed('No .zip file found in release assets. Please ensure your release includes a zip file.');
+              return; // Exit script if no zip found
             }
             
+            // Set outputs for subsequent steps
             core.setOutput('version', release.tag_name);
             core.setOutput('zip_url', zipAsset.browser_download_url);
             core.setOutput('zip_name', zipAsset.name);
-            core.setOutput('release_body', release.body || '');
+            core.setOutput('release_body', release.body || 'No release notes provided.'); // Default if body is empty
             
-            return {
-              version: release.tag_name,
-              zipUrl: zipAsset.browser_download_url,
-              zipName: zipAsset.name,
-              releaseBody: release.body || ''
-            };
+            console.log(`Using zip URL: ${zipAsset.browser_download_url}`);
+            console.log(`Using version: ${release.tag_name}`);
 
       - name: Download and extract zip file
+        # Only proceed if a zip_url was found in the previous step
+        if: success() && steps.release.outputs.zip_url
         run: |
           echo "=== Downloading zip file ==="
-          wget -O temp_module.zip "${{ steps.release.outputs.zip_url }}"
+          wget -q -O temp_module.zip "${{ steps.release.outputs.zip_url }}" || { echo "Failed to download zip file!"; exit 1; }
           
-          echo "=== Extracting zip file ==="
-          unzip -l temp_module.zip
+          echo "=== Verifying and extracting zip file ==="
+          unzip -l temp_module.zip || { echo "Failed to list contents of zip file! Is it a valid zip?"; exit 1; }
           
-          # Extract to temporary directory
           mkdir -p temp_extract
-          unzip temp_module.zip -d temp_extract/
+          unzip temp_module.zip -d temp_extract/ || { echo "Failed to extract zip file! Is it corrupted?"; exit 1; }
           
           echo "=== Extracted contents ==="
           ls -la temp_extract/
 
       - name: Extract version code from tag or module.prop
-        id: version_info
+        id: version_info # ID for this step
+        # Only proceed if the previous step (download/extract) was successful
+        if: success()
         run: |
           VERSION="${{ steps.release.outputs.version }}"
           VERSION_CODE=""
 
-          # Try to get versionCode from module.prop inside the extracted zip first
+          echo "Attempting to get versionCode from module.prop inside the extracted zip..."
           if [ -f "temp_extract/module.prop" ]; then
             EXTRACTED_VERSION_CODE=$(grep "^versionCode=" temp_extract/module.prop | cut -d'=' -f2 | tr -d '\r')
             if [ -n "$EXTRACTED_VERSION_CODE" ]; then
               VERSION_CODE="$EXTRACTED_VERSION_CODE"
               echo "Got versionCode from extracted module.prop: $VERSION_CODE"
+            else
+              echo "versionCode not found in extracted module.prop. Deriving from tag."
             fi
+          else
+            echo "module.prop not found in extracted zip. Deriving from tag."
           fi
 
-          # If versionCode not found in module.prop, derive from tag
+          # If versionCode not found in module.prop, or module.prop doesn't exist, derive from tag
           if [ -z "$VERSION_CODE" ]; then
-            # Extract version code from version (e.g., v4.2.1 -> 421)
-            # Remove 'v' prefix
+            # Clean 'v' prefix if present (e.g., v4.2.1 -> 4.2.1)
             CLEAN_VERSION=$(echo "$VERSION" | sed 's/^v//')
             
-            # Split by '.' and calculate
+            # Split version into MAJOR, MINOR, PATCH components
             IFS='.' read -r MAJOR MINOR PATCH <<< "$CLEAN_VERSION"
             
-            # Default to 0 if not present
+            # Ensure components are numeric, default to 0 if empty/invalid
             MAJOR=${MAJOR:-0}
             MINOR=${MINOR:-0}
             PATCH=${PATCH:-0}
 
-            # Calculate versionCode (e.g., v4.2.1 -> 40201 or 421 depending on format desire)
-            # For Magisk, it's often a simple concatenation or a calculation like this
-            # Let's aim for a more robust one like MAJOR * 10000 + MINOR * 100 + PATCH for example
-            # Or simpler: remove dots. v4.2.1 -> 421
-            VERSION_CODE=$(echo "$CLEAN_VERSION" | sed 's/\.//g')
+            # Calculate versionCode. This format (MAJOR * 10000 + MINOR * 100 + PATCH) 
+            # is a common robust way for Magisk that handles up to 99 for minor/patch.
+            # E.g., v1.2.3 -> 10203, v12.3.45 -> 120345
+            VERSION_CODE=$((MAJOR * 10000 + MINOR * 100 + PATCH))
             
-            echo "Derived versionCode from tag: $VERSION_CODE"
+            echo "Derived versionCode from tag (${VERSION}): $VERSION_CODE"
           fi
           
-          echo "VERSION_CODE=$VERSION_CODE" >> $GITHUB_ENV
+          # Set environment variables for subsequent steps
           echo "VERSION=$VERSION" >> $GITHUB_ENV
-          echo "Extracted version: $VERSION"
-          echo "Extracted version code: $VERSION_CODE"
+          echo "VERSION_CODE=$VERSION_CODE" >> $GITHUB_ENV
+          echo "Final Version: $VERSION"
+          echo "Final Version Code: $VERSION_CODE"
 
-      - name: Update module.prop from extracted files
+      - name: Update module.prop in repository
+        # Only proceed if version_code was successfully determined
+        if: success() && env.VERSION_CODE
         run: |
           VERSION="${{ env.VERSION }}"
           VERSION_CODE="${{ env.VERSION_CODE }}"
-
+          
+          echo "=== Updating module.prop in current repository ==="
+          
+          # Try to copy module.prop from extracted zip first
           if [ -f "temp_extract/module.prop" ]; then
-            echo "=== Updating module.prop from extracted file ==="
-            
-            # Backup current module.prop
-            [ -f "module.prop" ] && cp module.prop module.prop.bak
-            
-            # Copy extracted module.prop
+            echo "Copying module.prop from extracted zip to repository root."
             cp temp_extract/module.prop module.prop
-            
-            # Ensure version and versionCode are correct in the repository's module.prop
-            # Check if version= exists, if not, add it. If it does, update it.
-            if grep -q "^version=" module.prop; then
-              sed -i "s/^version=.*/version=$VERSION/" module.prop
-            else
-              echo "version=$VERSION" >> module.prop
-            fi
-            
-            # Check if versionCode= exists, if not, add it. If it does, update it.
-            if grep -q "^versionCode=" module.prop; then
-              sed -i "s/^versionCode=.*/versionCode=$VERSION_CODE/" module.prop
-            else
-              echo "versionCode=$VERSION_CODE" >> module.prop
-            fi
-            
-            echo "=== Updated module.prop ==="
-            cat module.prop
           else
-            echo "module.prop not found in extracted files! Creating a placeholder if it doesn't exist."
-            # If module.prop doesn't exist in the repo, create a basic one
+            echo "module.prop not found in extracted zip. Using existing or creating new module.prop in repository."
             if [ ! -f "module.prop" ]; then
-              echo "Creating new module.prop..."
+              echo "module.prop not found in repository, creating a new one."
+              # Create a basic module.prop if it doesn't exist in the repo
+              # IMPORTANT: You might need to edit 'id' and 'name' manually later if this is a new repo.
               echo "id=your.module.id" > module.prop
               echo "name=Your Module Name" >> module.prop
-              echo "version=$VERSION" >> module.prop
-              echo "versionCode=$VERSION_CODE" >> module.prop
               echo "author=Your Name" >> module.prop
               echo "description=A Magisk module." >> module.prop
-              echo "updateJson=https://raw.githubusercontent.com/${{ github.repository }}/main/update.json" >> module.prop
-            else
-              echo "module.prop already exists in repository, but not in extracted zip. Skipping update from zip."
             fi
-            cat module.prop
           fi
 
-      - name: Update update.json
+          # Ensure version, versionCode, and updateJson are correctly set in the repository's module.prop
+          # Update or add 'version'
+          if grep -q "^version=" module.prop; then
+            sed -i "s/^version=.*/version=$VERSION/" module.prop
+          else
+            echo "version=$VERSION" >> module.prop
+          fi
+          
+          # Update or add 'versionCode'
+          if grep -q "^versionCode=" module.prop; then
+            sed -i "s/^versionCode=.*/versionCode=$VERSION_CODE/" module.prop
+          else
+            echo "versionCode=$VERSION_CODE" >> module.prop
+          fi
+
+          # Ensure 'updateJson' is present and correct for Magisk Manager
+          # This assumes your update.json will always be at the root of the 'main' branch
+          UPDATE_JSON_URL="https://raw.githubusercontent.com/${{ github.repository }}/main/update.json"
+          if grep -q "^updateJson=" module.prop; then
+            sed -i "s|^updateJson=.*|updateJson=$UPDATE_JSON_URL|" module.prop
+          else
+            echo "updateJson=$UPDATE_JSON_URL" >> module.prop
+          fi
+          
+          echo "=== Final module.prop content ==="
+          cat module.prop
+
+      - name: Update update.json for Magisk Manager
+        # Only proceed if version and version_code were successfully determined
+        if: success() && env.VERSION && env.VERSION_CODE
         run: |
           VERSION="${{ env.VERSION }}"
           VERSION_CODE="${{ env.VERSION_CODE }}"
+          ZIP_URL="${{ steps.release.outputs.zip_url }}"
+          CHANGELOG_URL="https://raw.githubusercontent.com/${{ github.repository }}/main/changelog.md"
           
+          # Create update.json with correct Magisk Manager format
           cat << EOF > update.json
           {
             "version": "$VERSION",
             "versionCode": $VERSION_CODE,
-            "zipUrl": "${{ steps.release.outputs.zip_url }}",
-            "changelog": "https://raw.githubusercontent.com/${{ github.repository }}/main/changelog.md"
+            "zipUrl": "$ZIP_URL",
+            "changelog": "$CHANGELOG_URL"
           }
           EOF
           
           echo "=== update.json created ==="
           cat update.json
 
-      - name: Update changelog
+      - name: Update changelog.md
+        # Only proceed if version was successfully determined
+        if: success() && env.VERSION
         run: |
           VERSION="${{ env.VERSION }}"
           VERSION_CODE="${{ env.VERSION_CODE }}"
           RELEASE_BODY="${{ steps.release.outputs.release_body }}"
 
-          # Create or update changelog.md
+          # Create changelog.md if it doesn't exist
           if [ ! -f "changelog.md" ]; then
             echo "# Changelog" > changelog.md
             echo "" >> changelog.md
           fi
           
-          # Check if this version already exists in changelog
-          # Use grep -q for quiet check, and -F for fixed string matching if version contains special regex chars
+          # Check if this version already exists in changelog.md to avoid duplicates
           if ! grep -q "## $VERSION" changelog.md; then
-            echo "Adding new version entry to changelog..."
-            temp_file=$(mktemp)
+            echo "Adding new version entry for '$VERSION' to changelog.md..."
+            temp_file=$(mktemp) # Create a temporary file
+            
+            # Start with the main title
             echo "# Changelog" > "$temp_file"
             echo "" >> "$temp_file"
+            
+            # Add the new version header
             echo "## $VERSION ($(date +%Y-%m-%d))" >> "$temp_file"
-            echo "" >> "$temp_file" # Add an empty line for better formatting
-
-            # Add default changelog items
+            echo "" >> "$temp_file" # Blank line for spacing
+            
+            # Add default notes
             echo "- Updated to version $VERSION" >> "$temp_file"
             echo "- Version code: $VERSION_CODE" >> "$temp_file"
             
-            # Add release notes if available and not empty
-            if [ -n "$RELEASE_BODY" ]; then
-              echo "" >> "$temp_file" # Add an empty line for better formatting
-              echo "Release notes from GitHub Release:" >> "$temp_file"
-              # Indent release notes and replace newlines for markdown list formatting
+            # Add release notes from GitHub Release body if available and not empty
+            if [ -n "$RELEASE_BODY" ] && [ "$RELEASE_BODY" != "No release notes provided." ]; then
+              echo "" >> "$temp_file" # Blank line for spacing
+              echo "Release notes:" >> "$temp_file"
+              # Indent release notes and replace newlines with bullet points
               echo "$RELEASE_BODY" | sed 's/^/- /' >> "$temp_file" 
             fi
             
-            echo "" >> "$temp_file" # Add an empty line after the current version's entry
+            echo "" >> "$temp_file" # Blank line after new entry
             
-            # Append existing changelog content (skip first line if it's "# Changelog")
+            # Append existing changelog content (skip the first line if it's "# Changelog")
             if [ -f "changelog.md" ]; then
               tail -n +2 changelog.md >> "$temp_file"
             fi
             
-            mv "$temp_file" changelog.md
+            mv "$temp_file" changelog.md # Replace original with updated changelog
             
             echo "=== Updated changelog.md ==="
-            head -20 changelog.md
+            head -n 20 changelog.md # Show first 20 lines
           else
             echo "Version $VERSION already exists in changelog.md, skipping update."
           fi
 
-      - name: Update README.md
+      - name: Update README.md (optional)
+        if: success() && env.VERSION
         run: |
           VERSION="${{ env.VERSION }}"
           VERSION_CODE="${{ env.VERSION_CODE }}"
+          ZIP_URL="${{ steps.release.outputs.zip_url }}"
 
           if [ -f "README.md" ]; then
             echo "=== Updating README.md ==="
             
-            # Create backup
+            # Create backup (optional, for safety)
             cp README.md README.md.bak
             
-            # Update version info in README
-            # General version replacement (e.g., vX.Y.Z)
+            # Update version information (handles various common formats)
             sed -i "s/v[0-9]\+\.[0-9]\+\.[0-9]\+/$VERSION/g" README.md
-            # Specific "Version: vX.Y.Z"
             sed -i "s/Version: v[0-9]\+\.[0-9]\+\.[0-9]\+/Version: $VERSION/g" README.md
-            # Specific "Latest: vX.Y.Z"
             sed -i "s/Latest: v[0-9]\+\.[0-9]\+\.[0-9]\+/Latest: $VERSION/g" README.md
-            # Specific "Version Code: XXX"
             sed -i "s/Version Code: [0-9]\+/Version Code: $VERSION_CODE/g" README.md
             
-            # Update download links using the zip_url
-            # This regex tries to match common GitHub release download URLs
-            sed -i "s|https://github.com/.*/releases/download/v[0-9.]\+/[^)]*\.zip|${{ steps.release.outputs.zip_url }}|g" README.md
-            sed -i "s|https://github.com/.*/releases/download/v[0-9.]\+/.*\.zip|${{ steps.release.outputs.zip_url }}|g" README.md
-
-            echo "=== Updated README.md ==="
-            head -10 README.md
+            # Update download links (generic regex for GitHub release download URLs)
+            sed -i "s|https://github.com/.*/releases/download/[^/]\+/[^)]*\.zip|$ZIP_URL|g" README.md
+            
+            echo "=== Updated README.md preview ==="
+            head -n 15 README.md # Show first 15 lines of updated README
           else
             echo "README.md not found, skipping update."
           fi
 
-      - name: Update other files if needed
+      - name: Update other files if needed (optional)
+        if: success() && env.VERSION
         run: |
           VERSION="${{ env.VERSION }}"
           VERSION_CODE="${{ env.VERSION_CODE }}"
 
-          echo "=== Checking for other files to update ==="
+          echo "=== Checking for other files to update with version info ==="
           
-          # Update any .json files with version info (excluding update.json)
+          # Update JSON files (excluding update.json) that might contain version or versionCode
           for file in *.json; do
             if [ -f "$file" ] && [ "$file" != "update.json" ]; then
-              if grep -q "\"version\":" "$file" || grep -q "\"versionCode\":" "$file"; then
-                echo "Updating version in $file"
-                # Update "version": "vX.Y.Z"
+              if grep -q "\"version\"" "$file" || grep -q "\"versionCode\"" "$file"; then
+                echo "Updating version/versionCode in $file"
                 sed -i "s/\"version\": \"v[0-9]\+\.[0-9]\+\.[0-9]\+\"/\"version\": \"$VERSION\"/g" "$file"
-                # Update "versionCode": XXXXX
                 sed -i "s/\"versionCode\": [0-9]\+\/\"versionCode\": $VERSION_CODE/g" "$file"
               fi
             fi
           done
           
-          # Update any .txt or .md files with general version info (excluding README.md, changelog.md)
+          # Update text/markdown files (excluding README.md, changelog.md) that contain version strings
           for file in *.txt *.md; do
             if [ -f "$file" ] && [ "$file" != "README.md" ] && [ "$file" != "changelog.md" ]; then
               if grep -q "v[0-9]\+\.[0-9]\+\.[0-9]\+" "$file"; then
@@ -286,35 +299,37 @@ jobs:
           done
 
       - name: Commit all updated files
+        if: success() # Only commit if previous steps were successful
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           
-          # Add all modified files
-          git add .
+          git add . # Stage all changes
           
-          # Check if there are changes to commit
+          # Check if there are actual changes to commit
           if git diff --staged --quiet; then
-            echo "No changes to commit."
+            echo "No changes detected. Nothing to commit."
           else
             git commit -m "🔄 Auto-update repository from release $VERSION [skip ci]"
             git push
-            echo "Changes committed and pushed."
+            echo "Changes committed and pushed successfully."
           fi
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # Required for pushing changes
 
-      - name: Cleanup
+      - name: Cleanup temporary files
+        if: always() # Always run cleanup, even if previous steps failed
         run: |
           echo "=== Cleaning up temporary files ==="
           rm -rf temp_extract temp_module.zip
           rm -f *.bak
           echo "Cleanup complete."
 
-      - name: Complete job
+      - name: Job Summary
+        if: always() # Always show summary
         run: |
-          echo "=== Repository update completed successfully ==="
-          echo "Version: ${{ env.VERSION }}"
-          echo "Version Code: ${{ env.VERSION_CODE }}"
-          echo "Zip URL: ${{ steps.release.outputs.zip_url }}"
-          echo "Repository updated from release!"
+          echo "=== Repository update workflow finished ==="
+          echo "Version used: ${{ env.VERSION || 'N/A' }}"
+          echo "Version Code used: ${{ env.VERSION_CODE || 'N/A' }}"
+          echo "Zip URL: ${{ steps.release.outputs.zip_url || 'N/A' }}"
+          echo "Check your Actions tab for full log."

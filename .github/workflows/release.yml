@@ -21,44 +21,13 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            try {
-              // Try to get latest release first
-              const { data: release } = await github.rest.repos.getLatestRelease({
-                owner: context.repo.owner,
-                repo: context.repo.repo
-              });
-              
-              console.log('Latest release:', release.tag_name);
-              console.log('Release assets:', release.assets.map(a => a.name));
-              
-              return release;
-            } catch (error) {
-              if (error.status === 404) {
-                console.log('No latest release found, trying to get all releases...');
-                
-                // Get all releases and find the first published one
-                const { data: releases } = await github.rest.repos.listReleases({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  per_page: 10
-                });
-                
-                console.log('All releases:', releases.map(r => ({ tag: r.tag_name, draft: r.draft, prerelease: r.prerelease })));
-                
-                // Find first published release (not draft, not prerelease)
-                const publishedRelease = releases.find(r => !r.draft && !r.prerelease);
-                
-                if (!publishedRelease) {
-                  throw new Error('No published releases found. Please create a published release first.');
-                }
-                
-                console.log('Found published release:', publishedRelease.tag_name);
-                console.log('Release assets:', publishedRelease.assets.map(a => a.name));
-                
-                return publishedRelease;
-              }
-              throw error;
-            }
+            const { data: release } = await github.rest.repos.getLatestRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo
+            });
+            
+            console.log('Latest release:', release.tag_name);
+            console.log('Release assets:', release.assets.map(a => a.name));
             
             // Find zip file in assets (any .zip file)
             const zipAsset = release.assets.find(asset => 

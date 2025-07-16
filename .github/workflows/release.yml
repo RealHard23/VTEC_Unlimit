@@ -1,10 +1,8 @@
-name: Build & Release Magisk Module
+name: Auto Build Magisk Module from Release
 
 on:
-  push:
-    branches:
-      - main
-  workflow_dispatch:
+  release:
+    types: [published]
 
 permissions:
   contents: write
@@ -14,192 +12,76 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Get latest release info
+      - name: Get Release Info
         id: get_release
         run: |
-          # Get latest release from GitHub API
-          LATEST_RELEASE=$(curl -s "https://api.github.com/repos/${{ github.repository }}/releases/latest")
-          
-          if [ "$LATEST_RELEASE" != "null" ] && [ "$(echo $LATEST_RELEASE | jq -r '.tag_name')" != "null" ]; then
-            VERSION=$(echo $LATEST_RELEASE | jq -r '.tag_name')
-            DOWNLOAD_URL=$(echo $LATEST_RELEASE | jq -r '.assets[0].browser_download_url')
-            
-            echo "Found latest release: $VERSION"
-            echo "Download URL: $DOWNLOAD_URL"
-            
-            echo "MODULE_VERSION=$VERSION" >> $GITHUB_ENV
-            echo "DOWNLOAD_URL=$DOWNLOAD_URL" >> $GITHUB_ENV
-            echo "HAS_RELEASE=true" >> $GITHUB_ENV
-          else
-            echo "No release found, using default version"
-            VERSION="v4.3"
-            VERSION_CODE="46"
-            echo "MODULE_VERSION=$VERSION" >> $GITHUB_ENV
-            echo "MODULE_VERSION_CODE=$VERSION_CODE" >> $GITHUB_ENV
-            echo "HAS_RELEASE=false" >> $GITHUB_ENV
-          fi
+          echo "TAG_NAME=${{ github.event.release.tag_name }}" >> $GITHUB_ENV
+          ASSET_URL=$(curl -s "${{ github.event.release.assets_url }}" | jq -r '.[0].browser_download_url')
+          echo "ASSET_URL=$ASSET_URL" >> $GITHUB_ENV
 
-      - name: Download and extract release files
-        if: env.HAS_RELEASE == 'true'
+      - name: Download and Extract Zip
         run: |
-          echo "=== Downloading release files ==="
-          
-          # Download the release zip
-          curl -L -o release.zip "${{ env.DOWNLOAD_URL }}"
-          
-          # Extract and replace repository files
-          echo "=== Extracting release files ==="
+          echo "Downloading from: $ASSET_URL"
+          curl -L -o release.zip "$ASSET_URL"
           unzip -o release.zip
-          
-          # List extracted files
-          echo "=== Extracted files ==="
-          ls -la
-          
-          # Extract version code from module.prop if it exists
-          if [ -f "module.prop" ]; then
-            VERSION_CODE=$(grep "^versionCode=" module.prop | cut -d'=' -f2 || echo "46")
-            echo "MODULE_VERSION_CODE=$VERSION_CODE" >> $GITHUB_ENV
-            echo "Found version code: $VERSION_CODE"
-          else
-            echo "MODULE_VERSION_CODE=46" >> $GITHUB_ENV
-          fi
 
-      - name: Set version info (fallback)
-        if: env.HAS_RELEASE == 'false'
-        run: |
-          VERSION="v4.3"
-          VERSION_CODE="46"
-          echo "MODULE_VERSION=$VERSION" >> $GITHUB_ENV
-          echo "MODULE_VERSION_CODE=$VERSION_CODE" >> $GITHUB_ENV
-
-      - name: Check and list files
-        run: |
-          echo "=== Repository structure ==="
-          ls -la
-          echo "=== Checking module.prop ==="
+          # Extract versionCode from module.prop (fallback = 100)
           if [ -f "module.prop" ]; then
-            echo "module.prop exists"
-            cat module.prop
+            VERSION_CODE=$(grep "^versionCode=" module.prop | cut -d'=' -f2)
+            [ -z "$VERSION_CODE" ] && VERSION_CODE="100"
           else
-            echo "module.prop not found!"
+            echo "❌ module.prop not found"
             exit 1
           fi
 
-      - name: Update module.prop version
+          echo "MODULE_VERSION=${TAG_NAME}" >> $GITHUB_ENV
+          echo "MODULE_VERSION_CODE=$VERSION_CODE" >> $GITHUB_ENV
+
+      - name: Update module.prop
         run: |
-          # Backup original module.prop
-          cp module.prop module.prop.bak
-          
-          # Update version in module.prop - handle different formats
-          if grep -q "^version=" module.prop; then
-            sed -i 's/^version=.*/version=${{ env.MODULE_VERSION }}/' module.prop
-          else
-            echo "version=${{ env.MODULE_VERSION }}" >> module.prop
-          fi
-          
-          if grep -q "^versionCode=" module.prop; then
-            sed -i 's/^versionCode=.*/versionCode=${{ env.MODULE_VERSION_CODE }}/' module.prop
-          else
-            echo "versionCode=${{ env.MODULE_VERSION_CODE }}" >> module.prop
-          fi
-          
+          sed -i "s/^version=.*/version=${MODULE_VERSION}/" module.prop || echo "version=${MODULE_VERSION}" >> module.prop
+          sed -i "s/^versionCode=.*/versionCode=${MODULE_VERSION_CODE}/" module.prop || echo "versionCode=${MODULE_VERSION_CODE}" >> module.prop
           echo "=== Updated module.prop ==="
           cat module.prop
 
-      - name: Set executable permissions
+      - name: Set File Permissions
         run: |
-          # Set permissions only if files exist
-          [ -f "install.sh" ] && chmod +x install.sh || echo "install.sh not found"
-          [ -f "uninstall.sh" ] && chmod +x uninstall.sh || echo "uninstall.sh not found"
-          
-          # Set permissions for META-INF
-          if [ -d "META-INF" ]; then
-            find META-INF -type f -name "update-binary" -exec chmod +x {} \;
-            find META-INF -type f -name "*.sh" -exec chmod +x {} \;
-          fi
-          
-          # Set permissions for script directory
-          if [ -d "script" ]; then
-            find script -type f -name "*.sh" -exec chmod +x {} \;
-          fi
-          
-          # Set permissions for common directory
-          if [ -d "common" ]; then
-            find common -type f -name "*.sh" -exec chmod +x {} \;
-          fi
-          
-          # Set permissions for system directory
-          if [ -d "system" ]; then
-            find system -type f -exec chmod 644 {} \;
-          fi
+          chmod +x install.sh uninstall.sh || true
+          [ -d META-INF ] && find META-INF -type f -name "*.sh" -exec chmod +x {} \;
+          [ -d script ] && find script -type f -name "*.sh" -exec chmod +x {} \;
+          [ -d system ] && find system -type f -exec chmod 644 {} \;
 
-      - name: Create Magisk module zip
+      - name: Create Magisk Zip
         run: |
-          echo "=== Creating zip file ==="
-          
-          # Create zip with all repository files except .git and workflow files
-          zip -r "VTEC_Unlimit_4.3.zip" . \
-            -x ".git/*" \
-            -x ".github/*" \
-            -x "*.bak" \
-            -x "*.md" \
-            -x "*.txt" \
-            -x "*.log" \
-            -x ".gitignore" \
-            -x "README*" \
-            -x "readme*" \
-            -x "LICENSE*" \
-            -x "license*" \
-            -x "*.zip" \
-            -x "release.zip"
-          
-          echo "=== Zip file created successfully ==="
-          ls -la VTEC_Unlimit_4.3.zip
-          
-          # Show contents of zip file
-          echo "=== Zip file contents ==="
-          unzip -l VTEC_Unlimit_4.3.zip
+          OUTPUT_NAME="MagiskModule_${MODULE_VERSION}.zip"
+          zip -r "$OUTPUT_NAME" . \
+            -x ".git/*" ".github/*" "*.md" "*.log" "*.txt" "*.bak" "*.zip"
+          echo "✅ Created: $OUTPUT_NAME"
+          echo "ZIP_NAME=$OUTPUT_NAME" >> $GITHUB_ENV
 
-      - name: Update update.json
-        run: |
-          cat << EOF > update.json
-          {
-            "version": "${{ env.MODULE_VERSION }}",
-            "versionCode": "${{ env.MODULE_VERSION_CODE }}",
-            "zipUrl": "https://github.com/${{ github.repository }}/releases/download/${{ env.MODULE_VERSION }}/VTEC_Unlimit_4.3.zip",
-            "changelog": "https://raw.githubusercontent.com/${{ github.repository }}/main/changelog.md"
-          }
-          EOF
-          
-          echo "=== update.json created ==="
-          cat update.json
-
-      - name: Commit updated files
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          
-          # Add all files from release
-          git add .
-          
-          # Check if there are changes to commit
-          if git diff --staged --quiet; then
-            echo "No changes to commit"
-          else
-            git commit -m "Update repository with release files ${{ env.MODULE_VERSION }} [skip ci]"
-            git push
-          fi
+      - name: Upload Zip Back to Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: ${{ env.ZIP_NAME }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Complete job
+      - name: Update update.json
         run: |
-          echo "=== Build completed successfully ==="
-          echo "Created: VTEC_Unlimit_4.3.zip"
-          echo "Version: ${{ env.MODULE_VERSION }}"
-          echo "Version Code: ${{ env.MODULE_VERSION_CODE }}"
-          echo "Source: ${{ env.HAS_RELEASE == 'true' && 'Latest Release' || 'Repository Files' }}"
-          ls -la VTEC_Unlimit_4.3.zip
+          cat <<EOF > update.json
+          {
+            "version": "${MODULE_VERSION}",
+            "versionCode": "${MODULE_VERSION_CODE}",
+            "zipUrl": "https://github.com/${{ github.repository }}/releases/download/${MODULE_VERSION}/${ZIP_NAME}",
+            "changelog": "https://raw.githubusercontent.com/${{ github.repository }}/main/changelog.md"
+          }
+          EOF
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add update.json
+          git commit -m "Update update.json for ${MODULE_VERSION}" || echo "No changes to commit"
+          git push

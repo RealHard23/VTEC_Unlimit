@@ -1,17 +1,7 @@
 id=Unlock_limit
 name=VTEC_Unlock
-version=v4.7
-versionCode=151
+version=v4.3
+versionCode=46
 author=REALHARD
 description=🥳Unlock thermal control limits for XIAOMI.
 updateJson=https://raw.githubusercontent.com/RealHard23/VTEC_Unlimit/main/update.json
-
-# CREDITS
-# @modulostk
-# @Shakil_Webdev
-# @t.me/AlreyExe
-# @azbcxyaz
-# @Rem01Gaming
-# Thank you
-
-#####

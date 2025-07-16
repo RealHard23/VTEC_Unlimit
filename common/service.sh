@@ -44,8 +44,8 @@ echo N > /sys/module/msm_thermal/parameters/enabled
 
 for a in $(getprop|grep thermal|cut -f1 -d]|cut -f2 -d[|grep -F init.svc.|sed 's/init.svc.//');do stop $a;done;for b in $(getprop|grep thermal|cut -f1 -d]|cut -f2 -d[|grep -F init.svc.);do setprop $b stopped;done;for c in $(getprop|grep thermal|cut -f1 -d]|cut -f2 -d[|grep -F init.svc_);do setprop $c "";done
 
-su -c settings put secure speed_mode_enable 1
-su -c settings put system speed_mode 1
+#su -c settings put secure speed_mode_enable 1
+#su -c settings put system speed_mode 1
 su -c settings put system POWER_SAVE_PRE_HIDE_MODE performance
 su -c settings put secure fps_divisor 0
 su -c cmd thermalservice override-status 0
@@ -57,16 +57,19 @@ su -c settings put global block_untrusted_touches 0
 echo "0" > /sys/devices/system/cpu/cpu*/cpufreq/*/down_rate_limit_us
 echo "0" > /sys/devices/system/cpu/cpu*/cpufreq/*/up_rate_limit_us
 
-echo "200" > /proc/sys/vm/swappiness
+# เปิดการเร่งแสดงผล UI
+setprop persist.sys.ui.render_mode fast
+setprop persist.sys.ui.thread_priority max
+# บังคับให้แคชระบบใหม่ทั้งหมด
+setprop persist.sys.force_high_performance 1
+# เปิดใช้งานการแจ้งเตือนแบบ aggressive
+setprop persist.sys.notification_response fast
+# ลด latency แจ้งเตือนแบบ aggressive
+setprop persist.sys.notification_boost true
+# เปิด GPU Boost (อาจต้องรองรับจาก Kernel)
+setprop persist.sys.gpu.boost 1
 
- # Set CPU boost parameters
- if [ -f /sys/module/cpu_boost/parameters/cpu_boost ]; then
-     echo "1" > /sys/module/cpu_boost/parameters/cpu_boost
- fi
-    
- if [ -f /sys/module/cpu_boost/parameters/boost_ms ]; then
-     echo "100" > /sys/module/cpu_boost/parameters/boost_ms
- fi
+# echo "200" > /proc/sys/vm/swappiness
 
 su -lp 2000 -c "cmd notification post -S bigtext -t '🔥TWEAK🔥' 'Tag' 'VTEC_Unlock ⚡ปรับแต่ง⚡ Impover Stability Successfull'"
 
@@ -74,3 +77,4 @@ nohup sh $MODDIR/script/shellscript > /dev/null &
 
 # Applied changes
 echo "Optimization applied successfully!"
+

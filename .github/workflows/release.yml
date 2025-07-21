@@ -17,7 +17,58 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set version info
+      - name: Get latest release info
+        id: get_release
+        run: |
+          # Get latest release from GitHub API
+          LATEST_RELEASE=$(curl -s "https://api.github.com/repos/${{ github.repository }}/releases/latest")
+          
+          if [ "$LATEST_RELEASE" != "null" ] && [ "$(echo $LATEST_RELEASE | jq -r '.tag_name')" != "null" ]; then
+            VERSION=$(echo $LATEST_RELEASE | jq -r '.tag_name')
+            DOWNLOAD_URL=$(echo $LATEST_RELEASE | jq -r '.assets[0].browser_download_url')
+            
+            echo "Found latest release: $VERSION"
+            echo "Download URL: $DOWNLOAD_URL"
+            
+            echo "MODULE_VERSION=$VERSION" >> $GITHUB_ENV
+            echo "DOWNLOAD_URL=$DOWNLOAD_URL" >> $GITHUB_ENV
+            echo "HAS_RELEASE=true" >> $GITHUB_ENV
+          else
+            echo "No release found, using default version"
+            VERSION="v4.3"
+            VERSION_CODE="46"
+            echo "MODULE_VERSION=$VERSION" >> $GITHUB_ENV
+            echo "MODULE_VERSION_CODE=$VERSION_CODE" >> $GITHUB_ENV
+            echo "HAS_RELEASE=false" >> $GITHUB_ENV
+          fi
+
+      - name: Download and extract release files
+        if: env.HAS_RELEASE == 'true'
+        run: |
+          echo "=== Downloading release files ==="
+          
+          # Download the release zip
+          curl -L -o release.zip "${{ env.DOWNLOAD_URL }}"
+          
+          # Extract and replace repository files
+          echo "=== Extracting release files ==="
+          unzip -o release.zip
+          
+          # List extracted files
+          echo "=== Extracted files ==="
+          ls -la
+          
+          # Extract version code from module.prop if it exists
+          if [ -f "module.prop" ]; then
+            VERSION_CODE=$(grep "^versionCode=" module.prop | cut -d'=' -f2 || echo "46")
+            echo "MODULE_VERSION_CODE=$VERSION_CODE" >> $GITHUB_ENV
+            echo "Found version code: $VERSION_CODE"
+          else
+            echo "MODULE_VERSION_CODE=46" >> $GITHUB_ENV
+          fi
+
+      - name: Set version info (fallback)
+        if: env.HAS_RELEASE == 'false'
         run: |
           VERSION="v4.3"
           VERSION_CODE="46"
@@ -85,40 +136,13 @@ jobs:
             find system -type f -exec chmod 644 {} \;
           fi
 
-      - name: Create Magisk module zip
-        run: |
-          echo "=== Creating zip file ==="
-          
-          # Create zip with only existing files
-          ZIP_FILES=""
-          
-          [ -f "module.prop" ] && ZIP_FILES="$ZIP_FILES module.prop"
-          [ -f "install.sh" ] && ZIP_FILES="$ZIP_FILES install.sh"
-          [ -f "uninstall.sh" ] && ZIP_FILES="$ZIP_FILES uninstall.sh"
-          [ -d "META-INF" ] && ZIP_FILES="$ZIP_FILES META-INF"
-          [ -d "system" ] && ZIP_FILES="$ZIP_FILES system"
-          [ -d "script" ] && ZIP_FILES="$ZIP_FILES script"
-          [ -d "common" ] && ZIP_FILES="$ZIP_FILES common"
-          
-          # Add changelog.md if it exists
-          [ -f "changelog.md" ] && ZIP_FILES="$ZIP_FILES changelog.md"
-          
-          if [ -n "$ZIP_FILES" ]; then
-            zip -r "VTEC_Unlimit_${{ env.MODULE_VERSION }}.zip" $ZIP_FILES
-            echo "=== Zip file created successfully ==="
-            ls -la VTEC_Unlimit_${{ env.MODULE_VERSION }}.zip
-          else
-            echo "No files to zip!"
-            exit 1
-          fi
-
       - name: Update update.json
         run: |
           cat << EOF > update.json
           {
             "version": "${{ env.MODULE_VERSION }}",
             "versionCode": "${{ env.MODULE_VERSION_CODE }}",
-            "zipUrl": "https://github.com/${{ github.repository }}/releases/download/${{ env.MODULE_VERSION }}/VTEC_Unlimit_${{ env.MODULE_VERSION }}.zip",
+            "zipUrl": "https://github.com/${{ github.repository }}/releases/download/${{ env.MODULE_VERSION }}/VTEC_Dynamic_${{ env.MODULE_VERSION }}.zip",
             "changelog": "https://raw.githubusercontent.com/${{ github.repository }}/main/changelog.md"
           }
           EOF
@@ -131,15 +155,14 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           
-          # Add files if they exist
-          git add update.json
-          [ -f "module.prop" ] && git add module.prop
+          # Add all files from release
+          git add .
           
           # Check if there are changes to commit
           if git diff --staged --quiet; then
             echo "No changes to commit"
           else
-            git commit -m "Update version to ${{ env.MODULE_VERSION }} [skip ci]"
+            git commit -m "Update repository with release files ${{ env.MODULE_VERSION }} [skip ci]"
             git push
           fi
         env:
@@ -148,7 +171,7 @@ jobs:
       - name: Complete job
         run: |
           echo "=== Build completed successfully ==="
-          echo "Created: VTEC_Unlimit_${{ env.MODULE_VERSION }}.zip"
           echo "Version: ${{ env.MODULE_VERSION }}"
           echo "Version Code: ${{ env.MODULE_VERSION_CODE }}"
-          ls -la VTEC_Unlimit_${{ env.MODULE_VERSION }}.zip
+          echo "Source: ${{ env.HAS_RELEASE == 'true' && 'Latest Release' || 'Repository Files' }}"
+

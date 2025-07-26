@@ -80,7 +80,7 @@ sleep 1
   ui_print " RealHard @xda "
 sleep 1
   ui_print " "
-  ui_print " Version 4.3 "
+  ui_print " Version 4.4 "
 sleep 1
   ui_print " "
   ui_print " Disabled Thermal "

@@ -13,7 +13,7 @@ echo "$max" > /sys/devices/system/cpu/cpufreq/policy7/scaling_max_freq
 
 # Override thermal limits
 
-stop="disabled"
+stop="0"
     for zone in /sys/class/thermal/thermal_zone*; do
     if [ -f "$zone/mode" ]; then
         echo "$stop" > "$zone/mode"

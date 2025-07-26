@@ -46,7 +46,6 @@ for a in $(getprop|grep thermal|cut -f1 -d]|cut -f2 -d[|grep -F init.svc.|sed 's
 
 #su -c settings put secure speed_mode_enable 1
 #su -c settings put system speed_mode 1
-su -c settings put system POWER_SAVE_PRE_HIDE_MODE performance
 su -c settings put secure fps_divisor 0
 su -c cmd thermalservice override-status 0
 su -c settings put system thermal_limit_refresh_rate 0
@@ -69,6 +68,34 @@ setprop persist.sys.notification_boost true
 # เปิด GPU Boost (อาจต้องรองรับจาก Kernel)
 setprop persist.sys.gpu.boost 1
 
+# ปิด BCL (Battery Current Limit)
+echo 0 > /sys/class/power_supply/battery/system_temp_level 2>/dev/null
+echo 0 > /sys/class/power_supply/battery/input_suspend 2>/dev/null
+echo 0 > /sys/class/qcom-bcl*/mode 2>/dev/null
+
+# ปิด dynamic stune / schedutil input-boost -------
+echo 0 > /sys/module/cpu_input_boost/parameters/enabled 2>/dev/null
+echo 0 > /sys/module/dsboost/parameters/enabled 2>/dev/null
+echo 0 > /sys/module/dsboost/parameters/input_boost_ms 2>/dev/null
+echo 0 > /sys/module/cpu_boost/parameters/input_boost_ms 2>/dev/null
+
+# ปิด thermal-engine ทุกตัว -----------------------
+# บางรุ่นใช้ vendor, บางรุ่นใช้ system
+for t in /system/bin/thermal-engine* /vendor/bin/thermal-engine* /system/bin/thermald*; do
+    [ -f "$t" ] && chmod 000 "$t" && killall -9 "$(basename "$t")" 2>/dev/null
+done
+
+#ปิด kernel thermal driver -----------------------
+# บางชิปใช้ /sys/class/thermal, บางตัวใช้ /sys/kernel/thermal
+for z in /sys/class/thermal/thermal_zone*; do
+    [ -d "$z" ] && echo 0 > "$z/enabled" 2>/dev/null
+done
+
+# ปิด VSYNC offloading
+setprop debug.hwui.frame_rate 0
+setprop debug.performance.tuning 1
+setprop persist.sys.perf.topAppRenderThreadBoost.enable true
+
 # echo "200" > /proc/sys/vm/swappiness
 
 su -lp 2000 -c "cmd notification post -S bigtext -t '🔥TWEAK🔥' 'Tag' 'VTEC_Unlock ⚡ปรับแต่ง⚡ Impover Stability Successfull'"
@@ -76,5 +103,5 @@ su -lp 2000 -c "cmd notification post -S bigtext -t '🔥TWEAK🔥' 'Tag' 'VTEC_
 nohup sh $MODDIR/script/shellscript > /dev/null &
 
 # Applied changes
-echo "Optimization applied successfully!"
+echo "[VTEC_Unlimit] Improve performance activated at $(date)" >> /cache/VTEC_Unlimit.log
 

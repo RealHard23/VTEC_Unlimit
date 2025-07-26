@@ -19,7 +19,7 @@ jobs:
 
       - name: Set version info
         run: |
-          VERSION="v44"
+          VERSION="v4.4"
           VERSION_CODE="47"
           echo "MODULE_VERSION=$VERSION" >> $GITHUB_ENV
           echo "MODULE_VERSION_CODE=$VERSION_CODE" >> $GITHUB_ENV
@@ -85,6 +85,33 @@ jobs:
             find system -type f -exec chmod 644 {} \;
           fi
 
+      - name: Create Magisk module zip
+        run: |
+          echo "=== Creating zip file ==="
+          
+          # Create zip with only existing files
+          ZIP_FILES=""
+          
+          [ -f "module.prop" ] && ZIP_FILES="$ZIP_FILES module.prop"
+          [ -f "install.sh" ] && ZIP_FILES="$ZIP_FILES install.sh"
+          [ -f "uninstall.sh" ] && ZIP_FILES="$ZIP_FILES uninstall.sh"
+          [ -d "META-INF" ] && ZIP_FILES="$ZIP_FILES META-INF"
+          [ -d "system" ] && ZIP_FILES="$ZIP_FILES system"
+          [ -d "script" ] && ZIP_FILES="$ZIP_FILES script"
+          [ -d "common" ] && ZIP_FILES="$ZIP_FILES common"
+          
+          # Add changelog.md if it exists
+          [ -f "changelog.md" ] && ZIP_FILES="$ZIP_FILES changelog.md"
+          
+          if [ -n "$ZIP_FILES" ]; then
+            zip -r "VTEC_Unlimit_${{ env.MODULE_VERSION }}.zip" $ZIP_FILES
+            echo "=== Zip file created successfully ==="
+            ls -la VTEC_Unlimit_${{ env.MODULE_VERSION }}.zip
+          else
+            echo "No files to zip!"
+            exit 1
+          fi
+
       - name: Update update.json
         run: |
           cat << EOF > update.json
@@ -121,5 +148,7 @@ jobs:
       - name: Complete job
         run: |
           echo "=== Build completed successfully ==="
+          echo "Created: VTEC_Unlimit_${{ env.MODULE_VERSION }}.zip"
           echo "Version: ${{ env.MODULE_VERSION }}"
           echo "Version Code: ${{ env.MODULE_VERSION_CODE }}"
+          ls -la VTEC_Unlimit_${{ env.MODULE_VERSION }}.zip

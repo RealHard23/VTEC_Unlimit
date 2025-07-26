@@ -19,10 +19,15 @@ jobs:
 
       - name: Set version info
         run: |
-          VERSION="v4.4"
-          VERSION_CODE="47"
-          echo "MODULE_VERSION=$VERSION" >> $GITHUB_ENV
-          echo "MODULE_VERSION_CODE=$VERSION_CODE" >> $GITHUB_ENV
+          echo "MODULE_VERSION=v4.4"        >> $GITHUB_ENV
+          echo "MODULE_VERSION_CODE=47"     >> $GITHUB_ENV
+          echo "HAS_RELEASE=false"          >> $GITHUB_ENV
+
+      - name: Download and extract release files
+        if: env.HAS_RELEASE == 'true'
+        run: |
+          echo "=== Downloading release files ==="
+          # (skipped because HAS_RELEASE=false)
 
       - name: Check and list files
         run: |
@@ -42,7 +47,7 @@ jobs:
           # Backup original module.prop
           cp module.prop module.prop.bak
           
-          # Update version in module.prop - handle different formats
+          # Update version in module.prop
           if grep -q "^version=" module.prop; then
             sed -i 's/^version=.*/version=${{ env.MODULE_VERSION }}/' module.prop
           else
@@ -64,56 +69,25 @@ jobs:
           [ -f "install.sh" ] && chmod +x install.sh || echo "install.sh not found"
           [ -f "uninstall.sh" ] && chmod +x uninstall.sh || echo "uninstall.sh not found"
           
-          # Set permissions for META-INF
+          # META-INF
           if [ -d "META-INF" ]; then
             find META-INF -type f -name "update-binary" -exec chmod +x {} \;
             find META-INF -type f -name "*.sh" -exec chmod +x {} \;
           fi
           
-          # Set permissions for script directory
+          # script
           if [ -d "script" ]; then
             find script -type f -name "*.sh" -exec chmod +x {} \;
           fi
           
-          # Set permissions for common directory
+          # common
           if [ -d "common" ]; then
             find common -type f -name "*.sh" -exec chmod +x {} \;
           fi
           
-          # Set permissions for system directory
+          # system
           if [ -d "system" ]; then
             find system -type f -exec chmod 644 {} \;
-          fi
-
-      - name: Create Magisk module zip
-        id: create_zip # Add an ID to reference the output
-        run: |
-          echo "=== Creating zip file ==="
-          
-          # Create zip with only existing files
-          ZIP_FILES=""
-          
-          [ -f "module.prop" ] && ZIP_FILES="$ZIP_FILES module.prop"
-          [ -f "install.sh" ] && ZIP_FILES="$ZIP_FILES install.sh"
-          [ -f "uninstall.sh" ] && ZIP_FILES="$ZIP_FILES uninstall.sh"
-          [ -d "META-INF" ] && ZIP_FILES="$ZIP_FILES META-INF"
-          [ -d "system" ] && ZIP_FILES="$ZIP_FILES system"
-          [ -d "script" ] && ZIP_FILES="$ZIP_FILES script"
-          [ -d "common" ] && ZIP_FILES="$ZIP_FILES common"
-          
-          # Add changelog.md if it exists
-          [ -f "changelog.md" ] && ZIP_FILES="$ZIP_FILES changelog.md"
-          
-          ZIP_FILENAME="VTEC_Unlimit_${{ env.MODULE_VERSION }}.zip"
-          echo "ZIP_FILENAME=$ZIP_FILENAME" >> $GITHUB_ENV # Set as env var for later steps
-          
-          if [ -n "$ZIP_FILES" ]; then
-            zip -r "$ZIP_FILENAME" $ZIP_FILES
-            echo "=== Zip file created successfully ==="
-            ls -la "$ZIP_FILENAME"
-          else
-            echo "No files to zip!"
-            exit 1
           fi
 
       - name: Update update.json
@@ -121,8 +95,8 @@ jobs:
           cat << EOF > update.json
           {
             "version": "${{ env.MODULE_VERSION }}",
-            "versionCode": "${{ env.MODULE_VERSION_CODE }}",
-            "zipUrl": "https://github.com/${{ github.repository }}/releases/download/${{ env.MODULE_VERSION }}/${{ env.ZIP_FILENAME }}",
+            "versionCode": ${{ env.MODULE_VERSION_CODE }},
+            "zipUrl": "https://github.com/${{ github.repository }}/releases/download/${{ env.MODULE_VERSION }}/VTEC_Unlimit_4.4.zip",
             "changelog": "https://raw.githubusercontent.com/${{ github.repository }}/main/changelog.md"
           }
           EOF
@@ -135,54 +109,21 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           
-          # Add files if they exist
-          git add update.json
-          [ -f "module.prop" ] && git add module.prop
+          git add .
           
-          # Check if there are changes to commit
           if git diff --staged --quiet; then
             echo "No changes to commit"
           else
-            git commit -m "Update version to ${{ env.MODULE_VERSION }} [skip ci]"
+            git commit -m "Update repository with release files ${{ env.MODULE_VERSION }} [skip ci]"
             git push
           fi
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Create Release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ env.MODULE_VERSION }}
-          release_name: Release ${{ env.MODULE_VERSION }}
-          body: |
-            # VTEC Unlimit Module Update
-            
-            **Version:** ${{ env.MODULE_VERSION }}
-            **Version Code:** ${{ env.MODULE_VERSION_CODE }}
-            
-            [Download here](https://github.com/${{ github.repository }}/releases/download/${{ env.MODULE_VERSION }}/${{ env.ZIP_FILENAME }})
-            
-            See changelog for details: https://raw.githubusercontent.com/${{ github.repository }}/main/changelog.md
-          draft: false
-          prerelease: false
-
-      - name: Upload Release Asset
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ${{ env.ZIP_FILENAME }}
-          asset_name: ${{ env.ZIP_FILENAME }}
-          asset_content_type: application/zip
-
       - name: Complete job
         run: |
           echo "=== Build completed successfully ==="
-          echo "Created: ${{ env.ZIP_FILENAME }}"
           echo "Version: ${{ env.MODULE_VERSION }}"
           echo "Version Code: ${{ env.MODULE_VERSION_CODE }}"
-          ls -la ${{ env.ZIP_FILENAME }}
+          echo "Source: Repository Files"
+

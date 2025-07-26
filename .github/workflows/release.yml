@@ -1,4 +1,4 @@
-name: Build & Release Magisk Module
+name: Update Magisk Module Files
 
 on:
   push:
@@ -10,89 +10,36 @@ permissions:
   contents: write
 
 jobs:
-  build:
+  update-repo:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
 
       - name: Set version info
         run: |
-          echo "MODULE_VERSION=v4.4"        >> $GITHUB_ENV
-          echo "MODULE_VERSION_CODE=47"     >> $GITHUB_ENV
-          echo "HAS_RELEASE=false"          >> $GITHUB_ENV
+          echo "MODULE_VERSION=v4.4"    >> $GITHUB_ENV
+          echo "MODULE_VERSION_CODE=47"   >> $GITHUB_ENV
 
-      - name: Download and extract release files
-        if: env.HAS_RELEASE == 'true'
+      - name: Update module.prop
         run: |
-          echo "=== Downloading release files ==="
-          # (skipped because HAS_RELEASE=false)
-
-      - name: Check and list files
-        run: |
-          echo "=== Repository structure ==="
-          ls -la
-          echo "=== Checking module.prop ==="
-          if [ -f "module.prop" ]; then
-            echo "module.prop exists"
-            cat module.prop
-          else
-            echo "module.prop not found!"
-            exit 1
-          fi
-
-      - name: Update module.prop version
-        run: |
-          # Backup original module.prop
           cp module.prop module.prop.bak
-          
-          # Update version in module.prop
-          if grep -q "^version=" module.prop; then
-            sed -i 's/^version=.*/version=${{ env.MODULE_VERSION }}/' module.prop
-          else
-            echo "version=${{ env.MODULE_VERSION }}" >> module.prop
-          fi
-          
-          if grep -q "^versionCode=" module.prop; then
-            sed -i 's/^versionCode=.*/versionCode=${{ env.MODULE_VERSION_CODE }}/' module.prop
-          else
-            echo "versionCode=${{ env.MODULE_VERSION_CODE }}" >> module.prop
-          fi
-          
-          echo "=== Updated module.prop ==="
+          sed -i 's/^version=.*/version=${{ env.MODULE_VERSION }}/' module.prop
+          sed -i 's/^versionCode=.*/versionCode=${{ env.MODULE_VERSION_CODE }}/' module.prop
           cat module.prop
 
       - name: Set executable permissions
         run: |
-          # Set permissions only if files exist
-          [ -f "install.sh" ] && chmod +x install.sh || echo "install.sh not found"
-          [ -f "uninstall.sh" ] && chmod +x uninstall.sh || echo "uninstall.sh not found"
-          
-          # META-INF
-          if [ -d "META-INF" ]; then
-            find META-INF -type f -name "update-binary" -exec chmod +x {} \;
-            find META-INF -type f -name "*.sh" -exec chmod +x {} \;
-          fi
-          
-          # script
-          if [ -d "script" ]; then
-            find script -type f -name "*.sh" -exec chmod +x {} \;
-          fi
-          
-          # common
-          if [ -d "common" ]; then
-            find common -type f -name "*.sh" -exec chmod +x {} \;
-          fi
-          
-          # system
-          if [ -d "system" ]; then
-            find system -type f -exec chmod 644 {} \;
-          fi
+          [ -f "install.sh" ] && chmod +x install.sh || true
+          [ -f "uninstall.sh" ] && chmod +x uninstall.sh || true
+          find META-INF  -type f  $ -name "update-binary" -o -name "*.sh" $ -exec chmod +x {} \; 2>/dev/null || true
+          find script    -type f -name "*.sh" -exec chmod +x {} \; 2>/dev/null || true
+          find common    -type f -name "*.sh" -exec chmod +x {} \; 2>/dev/null || true
+          find system    -type f -exec chmod 644 {} \; 2>/dev/null || true
 
-      - name: Update update.json
+      - name: Create / update update.json
         run: |
-          cat << EOF > update.json
+          cat <<EOF > update.json
           {
             "version": "${{ env.MODULE_VERSION }}",
             "versionCode": ${{ env.MODULE_VERSION_CODE }},
@@ -100,30 +47,13 @@ jobs:
             "changelog": "https://raw.githubusercontent.com/${{ github.repository }}/main/changelog.md"
           }
           EOF
-          
-          echo "=== update.json created ==="
           cat update.json
 
-      - name: Commit updated files
+      - name: Commit & push all changes
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          
           git add .
-          
-          if git diff --staged --quiet; then
-            echo "No changes to commit"
-          else
-            git commit -m "Update repository with release files ${{ env.MODULE_VERSION }} [skip ci]"
-            git push
-          fi
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Complete job
-        run: |
-          echo "=== Build completed successfully ==="
-          echo "Version: ${{ env.MODULE_VERSION }}"
-          echo "Version Code: ${{ env.MODULE_VERSION_CODE }}"
-          echo "Source: Repository Files"
+          git diff --staged --quiet || git commit -m "Update repo files to ${{ env.MODULE_VERSION }} [skip ci]"
+          git push
 

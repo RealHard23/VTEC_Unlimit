@@ -1,9 +1,10 @@
-name: Auto-sync repo with latest release
+name: Update Magisk Module Files
 
 on:
-  release:
-    types: [published]      # ทำงานทุกครั้งที่คุณกด “Publish release”
-  workflow_dispatch:        # หรือกด manual ก็ได้
+  push:
+    branches:
+      - main
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -14,49 +15,47 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Get latest release info
-        id: get_release
+      - name: Set version info
         run: |
-          LATEST_RELEASE=$(curl -s "https://api.github.com/repos/${{ github.repository }}/releases/latest")
-          VERSION=$(echo "$LATEST_RELEASE" | jq -r '.tag_name')
-          ASSET_NAME=$(echo "$LATEST_RELEASE" | jq -r '.assets[0].name')
-          # ดึงเลข versionCode จากชื่อไฟล์ เช่น VTEC_Unlimit_45.zip -> 45
-          VERSION_CODE=$(echo "$ASSET_NAME" | grep -oP '(?<=_)\d+(?=\.zip)' || echo "0")
-          echo "MODULE_VERSION=$VERSION"       >> $GITHUB_ENV
-          echo "MODULE_VERSION_CODE=$VERSION_CODE" >> $GITHUB_ENV
-          echo "ZIP_NAME=$ASSET_NAME"          >> $GITHUB_ENV
+          echo "MODULE_VERSION=v4.4"    >> $GITHUB_ENV
+          echo "MODULE_VERSION_CODE=47"   >> $GITHUB_ENV
 
       - name: Update module.prop
         run: |
           cp module.prop module.prop.bak
-          sed -i "s/^version=.*/version=${{ env.MODULE_VERSION }}/" module.prop
-          sed -i "s/^versionCode=.*/versionCode=${{ env.MODULE_VERSION_CODE }}/" module.prop
+          sed -i 's/^version=.*/version=${{ env.MODULE_VERSION }}/' module.prop
+          sed -i 's/^versionCode=.*/versionCode=${{ env.MODULE_VERSION_CODE }}/' module.prop
           cat module.prop
-
-      - name: Update update.json
-        run: |
-          cat <<EOF > update.json
-          {
-            "version": "${{ env.MODULE_VERSION }}",
-            "versionCode": ${{ env.MODULE_VERSION_CODE }},
-            "zipUrl": "https://github.com/${{ github.repository }}/releases/download/${{ env.MODULE_VERSION }}/${{ env.ZIP_NAME }}",
-            "changelog": "https://raw.githubusercontent.com/${{ github.repository }}/main/changelog.md"
-          }
-          EOF
-          cat update.json
 
       - name: Set executable permissions
         run: |
           [ -f "install.sh" ] && chmod +x install.sh || true
           [ -f "uninstall.sh" ] && chmod +x uninstall.sh || true
-          find META-INF script common -type f -name "*.sh" -exec chmod +x {} \; 2>/dev/null || true
-          find system -type f -exec chmod 644 {} \; 2>/dev/null || true
+          find META-INF  -type f  $ -name "update-binary" -o -name "*.sh" $ -exec chmod +x {} \; 2>/dev/null || true
+          find script    -type f -name "*.sh" -exec chmod +x {} \; 2>/dev/null || true
+          find common    -type f -name "*.sh" -exec chmod +x {} \; 2>/dev/null || true
+          find system    -type f -exec chmod 644 {} \; 2>/dev/null || true
 
-      - name: Commit & push
+      - name: Create / update update.json
+        run: |
+          cat <<EOF > update.json
+          {
+            "version": "${{ env.MODULE_VERSION }}",
+            "versionCode": ${{ env.MODULE_VERSION_CODE }},
+            "zipUrl": "https://github.com/${{ github.repository }}/releases/download/${{ env.MODULE_VERSION }}/VTEC_Unlimit_4.4.zip",
+            "changelog": "https://raw.githubusercontent.com/${{ github.repository }}/main/changelog.md"
+          }
+          EOF
+          cat update.json
+
+      - name: Commit & push all changes
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add .
-          git diff --staged --quiet || git commit -m "Sync repo with release ${{ env.MODULE_VERSION }} [skip ci]"
+          git diff --staged --quiet || git commit -m "Update repo files to ${{ env.MODULE_VERSION }} [skip ci]"
           git push
+

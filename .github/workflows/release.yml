@@ -1,61 +1,41 @@
-name: Update Magisk Module Files
-
-on:
-  push:
-    branches:
-      - main
-  workflow_dispatch:
-
-permissions:
-  contents: write
-
-jobs:
   update-repo:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set version info
         run: |
-          echo "MODULE_VERSION=v4.4"    >> $GITHUB_ENV
-          echo "MODULE_VERSION_CODE=47"   >> $GITHUB_ENV
+          echo "MODULE_VERSION=v4.4.1"      >> $GITHUB_ENV
+          echo "MODULE_VERSION_CODE=48"   >> $GITHUB_ENV
 
       - name: Update module.prop
         run: |
-          cp module.prop module.prop.bak
           sed -i 's/^version=.*/version=${{ env.MODULE_VERSION }}/' module.prop
           sed -i 's/^versionCode=.*/versionCode=${{ env.MODULE_VERSION_CODE }}/' module.prop
-          cat module.prop
 
-      - name: Set executable permissions
+      - name: Create update.json
         run: |
-          [ -f "install.sh" ] && chmod +x install.sh || true
-          [ -f "uninstall.sh" ] && chmod +x uninstall.sh || true
-          find META-INF  -type f  $ -name "update-binary" -o -name "*.sh" $ -exec chmod +x {} \; 2>/dev/null || true
-          find script    -type f -name "*.sh" -exec chmod +x {} \; 2>/dev/null || true
-          find common    -type f -name "*.sh" -exec chmod +x {} \; 2>/dev/null || true
-          find system    -type f -exec chmod 644 {} \; 2>/dev/null || true
-
-      - name: Create / update update.json
-        run: |
+          REPO=${{ github.repository }}
+          TAG=${{ env.MODULE_VERSION }}
           cat <<EOF > update.json
           {
-            "version": "${{ env.MODULE_VERSION }}",
-            "versionCode": ${{ env.MODULE_VERSION_CODE }},
-            "zipUrl": "https://github.com/${{ github.repository }}/releases/download/${{ env.MODULE_VERSION }}/VTEC_Unlimit_4.4.zip",
-            "changelog": "https://raw.githubusercontent.com/${{ github.repository }}/main/changelog.md"
+            "version": "${TAG}",
+            "versionCode": ${{ env.MODULE_CODE }},
+            "zipUrl": "https://github.com/${REPO}/releases/download/${TAG}/VTEC_Unlimit_4.4.zip",
+            "changelog": "https://raw.githubusercontent.com/${REPO}/main/changelog.md"
           }
           EOF
-          cat update.json
 
-      - name: Commit & push all changes
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add .
-          git diff --staged --quiet || git commit -m "Update repo files to ${{ env.MODULE_VERSION }} [skip ci]"
-          git push
-
+      - name: Release ZIP & attach to GitHub Releases
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.MODULE_VERSION }}
+          name: "VTEC Unlimit ${{ env.MODULE_VERSION }}"
+          files: |
+            VTEC_Unlimit_4.4.1.zip
+            update.json
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

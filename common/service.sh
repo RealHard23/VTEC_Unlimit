@@ -73,24 +73,6 @@ echo 0 > /sys/class/power_supply/battery/system_temp_level 2>/dev/null
 echo 0 > /sys/class/power_supply/battery/input_suspend 2>/dev/null
 echo 0 > /sys/class/qcom-bcl*/mode 2>/dev/null
 
-# ปิด dynamic stune / schedutil input-boost -------
-echo 0 > /sys/module/cpu_input_boost/parameters/enabled 2>/dev/null
-echo 0 > /sys/module/dsboost/parameters/enabled 2>/dev/null
-echo 0 > /sys/module/dsboost/parameters/input_boost_ms 2>/dev/null
-echo 0 > /sys/module/cpu_boost/parameters/input_boost_ms 2>/dev/null
-
-# ปิด thermal-engine ทุกตัว -----------------------
-# บางรุ่นใช้ vendor, บางรุ่นใช้ system
-for t in /system/bin/thermal-engine* /vendor/bin/thermal-engine* /system/bin/thermald*; do
-    [ -f "$t" ] && chmod 000 "$t" && killall -9 "$(basename "$t")" 2>/dev/null
-done
-
-#ปิด kernel thermal driver -----------------------
-# บางชิปใช้ /sys/class/thermal, บางตัวใช้ /sys/kernel/thermal
-for z in /sys/class/thermal/thermal_zone*; do
-    [ -d "$z" ] && echo 0 > "$z/enabled" 2>/dev/null
-done
-
 # ปิด VSYNC offloading
 setprop debug.hwui.frame_rate 0
 setprop debug.performance.tuning 1

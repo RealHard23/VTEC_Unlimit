@@ -17,65 +17,113 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Extract version from module.prop
-        id: ver
+      - name: Set version info
         run: |
-          MODULE_VERSION=$(grep '^version=' module.prop | cut -d'=' -f2)
-          MODULE_VERSION_CODE=$(grep '^versionCode=' module.prop | cut -d'=' -f2)
-          echo "MODULE_VERSION=$MODULE_VERSION"         >> $GITHUB_ENV
-          echo "MODULE_VERSION_CODE=$MODULE_VERSION_CODE" >> $GITHUB_ENV
-          echo "Detected version=$MODULE_VERSION (code=$MODULE_VERSION_CODE)"
+          echo "MODULE_VERSION=v4.4.1"      >> $GITHUB_ENV
+          echo "MODULE_VERSION_CODE=48"     >> $GITHUB_ENV
+          echo "HAS_RELEASE=false"          >> $GITHUB_ENV
+
+      - name: Download and extract release files
+        if: env.HAS_RELEASE == 'true'
+        run: |
+          echo "=== Downloading release files ==="
+          # (skipped because HAS_RELEASE=false)
 
       - name: Check and list files
         run: |
           echo "=== Repository structure ==="
           ls -la
-          echo "=== module.prop ==="
-          cat module.prop
-
-      - name: Ensure updateJson line exists in module.prop
-        run: |
-          if ! grep -q '^updateJson=' module.prop; then
-            echo "updateJson=https://raw.githubusercontent.com/${{ github.repository }}/main/update.json" >> module.prop
+          echo "=== Checking module.prop ==="
+          if [ -f "module.prop" ]; then
+            echo "module.prop exists"
+            cat module.prop
+          else
+            echo "module.prop not found!"
+            exit 1
           fi
+
+      - name: Update module.prop version
+        run: |
+          # Backup original module.prop
+          cp module.prop module.prop.bak
+          
+          # Update version in module.prop
+          if grep -q "^version=" module.prop; then
+            sed -i 's/^version=.*/version=${{ env.MODULE_VERSION }}/' module.prop
+          else
+            echo "version=${{ env.MODULE_VERSION }}" >> module.prop
+          fi
+          
+          if grep -q "^versionCode=" module.prop; then
+            sed -i 's/^versionCode=.*/versionCode=${{ env.MODULE_VERSION_CODE }}/' module.prop
+          else
+            echo "versionCode=${{ env.MODULE_VERSION_CODE }}" >> module.prop
+          fi
+          
+          echo "=== Updated module.prop ==="
+          cat module.prop
 
       - name: Set executable permissions
         run: |
-          [ -f "install.sh" ]    && chmod +x install.sh    || echo "install.sh not found"
-          [ -f "uninstall.sh" ]  && chmod +x uninstall.sh  || echo "uninstall.sh not found"
-          [ -d "META-INF" ] && find 'META-INF' -type f  $ -name 'update-binary' -o -name '*.sh' $ -exec chmod +x {} \+
-          [ -d "script" ]   && find 'script'   -type f -name '*.sh' -exec chmod +x {} \+
-          [ -d "common" ]   && find 'common'   -type f -name '*.sh' -exec chmod +x {} \+
-          [ -d "system" ]   && find 'system'   -type f -exec chmod 644 {} \+
+          # Set permissions only if files exist
+          [ -f "install.sh" ] && chmod +x install.sh || echo "install.sh not found"
+          [ -f "uninstall.sh" ] && chmod +x uninstall.sh || echo "uninstall.sh not found"
+          
+          # META-INF
+          if [ -d "META-INF" ]; then
+            find META-INF -type f -name "update-binary" -exec chmod +x {} \;
+            find META-INF -type f -name "*.sh" -exec chmod +x {} \;
+          fi
+          
+          # script
+          if [ -d "script" ]; then
+            find script -type f -name "*.sh" -exec chmod +x {} \;
+          fi
+          
+          # common
+          if [ -d "common" ]; then
+            find common -type f -name "*.sh" -exec chmod +x {} \;
+          fi
+          
+          # system
+          if [ -d "system" ]; then
+            find system -type f -exec chmod 644 {} \;
+          fi
 
-      - name: Generate update.json
+      - name: Update update.json
         run: |
           cat << EOF > update.json
           {
             "version": "${{ env.MODULE_VERSION }}",
             "versionCode": ${{ env.MODULE_VERSION_CODE }},
-            "zipUrl": "https://github.com/${{ github.repository }}/releases/download/${{ env.MODULE_VERSION }}/VTEC_Unlimit_${{ env.MODULE_VERSION }}.zip",
+            "zipUrl": "https://github.com/${{ github.repository }}/releases/download/${{ env.MODULE_VERSION }}/VTEC_Unlimit_4.4.1.zip",
             "changelog": "https://raw.githubusercontent.com/${{ github.repository }}/main/changelog.md"
           }
           EOF
-          echo "=== update.json ==="
+          
+          echo "=== update.json created ==="
           cat update.json
 
-      - name: Commit & push changes
+      - name: Commit updated files
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+          
           git add .
+          
           if git diff --staged --quiet; then
             echo "No changes to commit"
           else
-            git commit -m "Auto-update files for ${{ env.MODULE_VERSION }} [skip ci]"
+            git commit -m "Update repository with release files ${{ env.MODULE_VERSION }} [skip ci]"
             git push
           fi
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Done
+      - name: Complete job
         run: |
-          echo "✅ Version ${{ env.MODULE_VERSION }} (code ${{ env.MODULE_VERSION_CODE }}) ready for release"
-
+          echo "=== Build completed successfully ==="
+          echo "Version: ${{ env.MODULE_VERSION }}"
+          echo "Version Code: ${{ env.MODULE_VERSION_CODE }}"
+          echo "Source: Repository Files"
+          

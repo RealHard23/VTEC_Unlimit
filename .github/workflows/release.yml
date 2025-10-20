@@ -158,4 +158,3 @@ jobs:
           echo "Version: ${{ env.MODULE_VERSION }}"
           echo "Version Code: ${{ env.MODULE_VERSION_CODE }}"
           echo "Source: ${{ env.HAS_RELEASE == 'true' && 'Latest Release' || 'Repository Files' }}"
-          

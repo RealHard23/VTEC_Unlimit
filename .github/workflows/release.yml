@@ -62,14 +62,14 @@ jobs:
             echo "Found version code: $VERSION_CODE"
           else
             echo "module.prop not found in release zip; using default version code"
-            echo "MODULE_VERSION_CODE=48" >> $GITHUB_ENV
+            echo "MODULE_VERSION_CODE=49" >> $GITHUB_ENV
           fi
 
       - name: Set version info (fallback)
         if: env.HAS_RELEASE == 'false'
         run: |
-          echo "MODULE_VERSION=v4.4.1" >> $GITHUB_ENV
-          echo "MODULE_VERSION_CODE=48" >> $GITHUB_ENV
+          echo "MODULE_VERSION=v4.5" >> $GITHUB_ENV
+          echo "MODULE_VERSION_CODE=49" >> $GITHUB_ENV
 
       - name: Check and list files
         run: |

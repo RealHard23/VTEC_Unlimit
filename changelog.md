@@ -1,17 +1,10 @@
 #กรุณาอ่านก่อนทำการติดตั้ง
 https://github.com/RealHard23/VTEC_Unlimit/blob/main/README.md
 
-#V4.4.1
+#V4.5
 บันทึกการเปลี่ยนแปลง
 แก้ไขข้อผิดพลาดบางอย่างโดยการลบโค้ด
 
-for t in /system/bin/thermal-engine* /vendor/bin/thermal-engine* /system/bin/thermald*; do
-    [ -f "$t" ] && chmod 000 "$t" && killall -9 "$(basename "$t")" 2>/dev/null
-done
-
-for z in /sys/class/thermal/thermal_zone*; do
-    [ -d "$z" ] && echo 0 > "$z/enabled" 2>/dev/null
-done
 
 ที่อาจทำให้เกิดปัญหากับโทรศัพท์บางรุ่น
 

@@ -73,11 +73,6 @@ echo 0 > /sys/class/power_supply/battery/system_temp_level 2>/dev/null
 echo 0 > /sys/class/power_supply/battery/input_suspend 2>/dev/null
 echo 0 > /sys/class/qcom-bcl*/mode 2>/dev/null
 
-# ปิด VSYNC offloading
-setprop debug.hwui.frame_rate 0
-setprop debug.performance.tuning 1
-setprop persist.sys.perf.topAppRenderThreadBoost.enable true
-
 # echo "200" > /proc/sys/vm/swappiness
 
 su -lp 2000 -c "cmd notification post -S bigtext -t '🔥TWEAK🔥' 'Tag' 'VTEC_Unlock ⚡ปรับแต่ง⚡ Impover Stability Successfull'"

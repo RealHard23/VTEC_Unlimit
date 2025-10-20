@@ -50,52 +50,6 @@ ro.config.power_save=false
 persist.log.tag.LSPosed S
 persist.log.tag.LSPosed-Bridge S
 
-# การปรับปรุงการแสดงผล UI/UX 
-debug.sf.hwc_composition_fallback=0 
-# บังคับให้ใช้ Hardware Composer (HWC) เพื่อประสิทธิภาพที่ดีขึ้น
-debug.sf.early_phase_offset=0 
-# ลดความหน่วงในการแสดงผล
-debug.sf.enable_gl_backpressure=0 
-# ปิด Backpressure ของ GL เพื่อความลื่นไหล
-# persist.sys.strict_mode.disable=1 # ปิด Strict Mode Logging (สำหรับนักพัฒนา)
-
-# การปรับปรุงความเร็วในการเปิดแอปและการจัดการหน่วยความจำ
-# ro.vendor.hw.sensor.power=true # อาจช่วยเรื่องการทำงานของเซ็นเซอร์และ Wakelocks
-# ro.config.low_ram=false # หลอกระบบว่าอุปกรณ์ไม่ใช่ Low-RAM device (ระวังการใช้ RAM ที่มากขึ้น) 
-ro.config.accelerate_graphics=true 
-# อาจช่วยเรื่องกราฟิก
-
-# Debugging / UI Rendering (Often default or for specific cases)
-# debug.sf.hw=1                     # Force GPU rendering for UI (usually default now)
-# debug.egl.hw=1                    # Enable EGL hardware acceleration (usually default)
-# debug.composition.type=gpu        # Force GPU composition (often default or specific)
-debug.hwui.render_dirty_regions=false 
-# Disable partial screen updates (can be faster but use more power)
-                                  # On modern Android, this is often handled efficiently
-
-# Dalvik/ART VM Optimization (Indirectly affects overall responsiveness)
-# dalvik.vm.heapgrowthlimit=256m    # Max heap size for apps before grow. Adjust cautiously.
-# dalvik.vm.heapsize=512m           # Initial heap size. Too large can waste RAM.
-                                  # These affect RAM available to apps, not direct GPU.
-
-# Other potentially related settings (often minimal or no direct GPU impact)
-# ro.config.vc_call_quality=high    # Voice Call Quality (no GPU impact)
-# ro.opengles.version=196608        # OpenGL ES 3.2 (set by vendor)
-debug.hwui.overdraw=false
-
-# ปิดทุกการปรับลดการทำงานระบบ
-persist.sys.use_optimized_power=0
-persist.sys.ignore_battery_saving=true
-
-# เพิ่ม responsiveness ของ UI
-persist.sys.ui_response_boost=true
-
-# ลด delay ในการแจ้งเตือน
-persist.sys.notification_delay=0
-# ลด delay และเพิ่มระดับ priority
-persist.sys.window_priority=high
-persist.sys.touch_latency_reduce=true
-persist.sys.animation_skip_delay=0
 # ปรับปรุงประสิทธิภาพกราฟฟิก
 persist.sys.gpu.optimize_ui=true           
 # Do NOT change this unless you know what you are doing.
